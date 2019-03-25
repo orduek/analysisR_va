@@ -1,0 +1,62 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+Now we should look at anxiolityc medications.
+
+```{r}
+# now we clean data
+# take only anxiolytics
+antiANX_dat <- dplyr::filter(vaDatclean, !is.na(AXSEDHPRXN) & is.na(PREADRX) & is.na(PREAPRX) & is.na(PREAXRX) & is.na(PRESTIRX) & is.na(PREACRX) & is.na(PRELIRX) & is.na(PREOPRX) & is.na(PREPRZRX) & is.na(ADRXN)) 
+head(antiANX_dat)
+```
+Only 10,637
+
+```{r}
+drugeUsage<- table(antiANX_dat$AXDAY)#, antiDP_dat$APSDAY, antiDP_dat$AXDAY, vaDatclean$STIMDAY)
+mean(antiANX_dat$AXDAY)
+sd(antiANX_dat$AXDAY)
+median(antiANX_dat$AXDAY)
+plot(density(antiANX_dat$AXDAY))
+```
+
+```{r}
+plot(antiANX_dat$ageCat)
+# check comorbidity
+```
+
+```{r}
+library(survival)
+library(survminer)
+surv_object_anx <- Surv(time = antiANX_dat$MEDTOTDAY, event = antiANX_dat$MHDROP)
+summary(surv_object_anx)
+```
+
+
+```{r}
+# Hazard analysis
+fit.coxphAnx <- coxph(surv_object_anx ~ FEMALE  + VATXM + MARRIED + OEFOIF + race + sumComorbidfactor + sumMedCat, 
+                   data = antiANX_dat)
+ggforest(fit.coxphAnx, data = antiANX_dat)
+```
+
+
+
+Do the same for anti psychotic
+```{r}
+# Anti Psychotic without any previous med
+antiAPX_dat <- dplyr::filter(vaDatclean, !is.na(APSRXN) & is.na(PREADRX) & is.na(PREAPRX) & is.na(PREAXRX) & is.na(PRESTIRX) & is.na(PREACRX) & is.na(PRELIRX) & is.na(PREOPRX) & is.na(PREPRZRX) & is.na(ADRXN)) 
+head(antiAPX_dat)
+```
+
+```{r}
+surv_object_apx <- Surv(time = antiAPX_dat$MEDTOTDAY, event = antiAPX_dat$MHDROP)
+summary(surv_object_apx)
+```
+```{r}
+# Hazard analysis
+fit.coxphApx <- coxph(surv_object_apx ~ FEMALE  + VATXM + MARRIED + OEFOIF + race + sumComorbidfactor + sumMedCat, 
+                   data = antiAPX_dat)
+ggforest(fit.coxphApx, data = antiAPX_dat)
+```
