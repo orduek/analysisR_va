@@ -12,6 +12,7 @@ Then do hazard analysis with age (make categorical, gender, marital statues, com
 ```{r}
 # load data
 library(tidyverse)
+library(jtools)
 vaDat <- read_csv('/home/or/Dropbox/postdoc/Yale/va_data/MED_Drop.csv')
 
 vaDatclean <- vaDat
@@ -23,6 +24,8 @@ a = '01/01/1960'
 vaDatclean$PTSDINDr = as.Date(as.character(a), format = '%d/%m/%Y') + vaDatclean$PTSDIND
 # Now take only patients who recieved medications. 
 onlyMed_dat <- subset(vaDatclean, vaDatclean$PMEDRX==1)
+# set number of days from index day to drop out
+vaDatclean$totalDays <- as.Date(as.character(vaDatclean$MHDROPD),format = '%m/%d/%Y')  - as.Date(vaDatclean$PTSDINDr,format = '%Y/%m/%d')
 head(vaDatclean)
 ```
 ```{r}
@@ -67,12 +70,29 @@ vaDatclean$LIRXN_true <- case_when(vaDatclean$LIRXN > 0 ~ 1, TRUE ~ 0)
 vaDatclean$sumMed <- vaDatclean$LIRXN_true + vaDatclean$ACVMSRXN_true + vaDatclean$STIMRXN_true + vaDatclean$AXSEDHPRXN_true + vaDatclean$APSRXN_true + vaDatclean$ADRXN_true 
 vaDatclean$sumMedCat <- factor(case_when(vaDatclean$sumMed==1 ~ '1', vaDatclean$sumMed == 2 ~ "2", vaDatclean$sumMed >= 3 ~ "3+"))
 
+# create a censore variable who survived more than 30 days
+vaDatclean$MONTH1 <- case_when(vaDatclean$totalDays <= 30 ~ 1, TRUE ~ 0)
+
 ```
 
 Lets take just medicated patients, before stratify to different groups of medication.
 ```{r}
 # take just medicated patients. 
-
+medicatedVa_dat <- filter(vaDatclean, PMEDRX==1)
+head(medicatedVa_dat)
+```
+Lets look at some descriptives
+```{r}
+# plot age
+ggplot(medicatedVa_dat, aes(x=medicatedVa_dat$AGE_OCT01)) + geom_histogram() + xlab("Age") + stat_bin(bins=30) + theme_minimal() + ggtitle("Age Histogram")
+summary(medicatedVa_dat$MARRIED)
+table(medicatedVa_dat$FEMALE)
+plot(medicatedVa_dat$race)
+g <- data.frame(table(medicatedVa_dat$race))
+plot(g)
+table(g)
+ggplot(g, aes(x= "",y=Freq, fill = Var1)) + geom_bar(width = 14, stat = "identity") + coord_polar("y") + theme_minimal()
+table(medicatedVa_dat$sumMed)
 ```
 
 
@@ -81,27 +101,50 @@ Lets take just medicated patients, before stratify to different groups of medica
 # take only anti depressant without any medication before index day
 antiDP_dat <- dplyr::filter(vaDatclean, !is.na(ADRXN) & is.na(PREADRX) & is.na(PREAPRX) & is.na(PREAXRX) & is.na(PRESTIRX) & is.na(PREACRX) & is.na(PRELIRX) & is.na(PREOPRX) & is.na(PREPRZRX)) 
 head(antiDP_dat)
+
 ```
 
-Lets look at some descriptives
-```{r}
-# plot age
-ggplot(antiDP_dat, aes(x=antiDP_dat$AGE_OCT01)) + geom_histogram() + xlab("Age") + stat_bin(bins=30) + theme_minimal() + ggtitle("Age Histogram")
-plot(antiDP_dat$MARRIED)
-
-g <- data.frame(table(antiDP_dat$race))
-ggplot(g, aes(x= "",y=Freq, fill = Var1)) + geom_bar(width = 1, stat = "identity") + coord_polar("y", start=0) + theme_minimal()
-```
 Now lets look at the drugs
 
 ```{r}
 # whats the average drug usage?
-drugeUsage<- table(antiDP_dat$ADDAY)#, antiDP_dat$APSDAY, antiDP_dat$AXDAY, vaDatclean$STIMDAY)
-mean(antiDP_dat$ADDAY)
+drugeUsage<- table(medicatedVa_dat$ADDAY)#, antiDP_dat$APSDAY, antiDP_dat$AXDAY, vaDatclean$STIMDAY)
+hist(medicatedVa_dat$MEDTOTDAY)
+# many patients drop out fast.
+# lets see how many we have after 30 days of use
+drugeMore30 <- filter(medicatedVa_dat, MEDTOTDAY >= 30)
+247083/330772
+# only 74.6% of the people survive the first 30 days. 
+hist(drugeMore30$ADDAY)
+
+drugLess30 <- filter(medicatedVa_dat, MEDTOTDAY  <= 30)
+mean(medicatedVa_dat$ADDAY, na.rm=TRUE)
 sd(antiDP_dat$ADDAY)
-median(antiDP_dat$ADDAY)
-plot(density(antiDP_dat$ADDAY))
+median(medicatedVa_dat$ADDAY, na.rm=TRUE)
+plot(density(medicatedVa_dat$ADDAY, na.rm=TRUE) )
 ```
+
+So - after 30 days we see major drop out. We will start by focusing on that time period. 
+```{r}
+# first create survival model
+library(survival)
+library(survminer)
+surv_less30 <- Surv(time = medicatedVa_dat$MEDTOTDAY, event = medicatedVa_dat$MONTH1)  
+summary(surv_less30)
+# now cox analysis
+fit.coxphLess30 <- coxph(surv_less30 ~ FEMALE  + PSYCTR + MARRIED + ageCat + race + sumComorbid + sumMed, 
+                   data = medicatedVa_dat)
+ggforest(fit.coxphLess30, data = medicatedVa_dat)
+```
+
+```{r}
+model30 <- glm(MONTH1 ~ scale(PSYCTHR) + MARRIED + scale(medicatedVa_dat$AGE_OCT01) + race + scale(medicatedVa_dat$sumComorbid) + scale(sumMed), data = medicatedVa_dat)
+summary(model30)
+summ(model30, exp = TRUE)
+plot
+```
+
+
 So. average use of anti depressant is 101.9 days. SD is 111 and median is 61. 
 
 
@@ -114,8 +157,6 @@ plot(antiDP_dat$ageCat)
 Now lets do survival analysis
 
 ```{r}
-library(survival)
-library(survminer)
 surv_object <- Surv(time = antiDP_dat$MEDTOTDAY, event = antiDP_dat$MHDROP)
 summary(surv_object)
 ```
@@ -153,7 +194,7 @@ Lets check only with Anxiety disorder.
 ######################################################################
 ######################################################################
 ############### ANALYSIS ANTI DEPRESSANTS #################
-fit.coxph3 <- coxph(surv_object ~ FEMALE  + VATXM + MARRIED + OEFOIF + race + sumComorbidfactor, 
+fit.coxph3 <- coxph(surv_object ~ FEMALE  + PSYCTR + MARRIED + OEFOIF + race + sumComorbidfactor, 
                    data = antiDP_dat)
 ggforest(fit.coxph3, data = antiDP_dat)
 ```
