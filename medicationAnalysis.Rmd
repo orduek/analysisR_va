@@ -187,7 +187,8 @@ Now we will omit those who didn't have first visit at all and look at the data w
 ```{r}
 medicatedVa_datFirstV <-  subset(medicatedVa_dat, !is.na(medicatedVa_dat$MHFUFRST))
 307798/330772
-medicatedVa_datFirstV$timeTofV <- factor(case_when(medicatedVa_datFirstV$MHFUFRST<=7 ~ "7", medicatedVa_datFirstV$MHFUFRST > 7 & medicatedVa_datFirstV$MHFUFRST <= 14 ~ "7-14", TRUE ~ "14+"))
+medicatedVa_datFirstV$timeTofV <- factor(case_when(medicatedVa_datFirstV$MHFUFRST<=7 ~ "7", medicatedVa_datFirstV$MHFUFRST > 7 & medicatedVa_datFirstV$MHFUFRST <= 14 ~ "7-14", medicatedVa_datFirstV$MHFUFRST>14 & medicatedVa_datFirstV$MHFUFRST<=30 ~ "15-30", TRUE ~ "30+"))
+medicatedVa_datFirstV$timeTofV <- relevel(medicatedVa_datFirstV$timeTofV, "30+")
 plot(medicatedVa_datFirstV$timeTofV)
 summary(medicatedVa_datFirstV$MHFUFRST)
 head(medicatedVa_datFirstV)
@@ -201,12 +202,14 @@ fit.coxphLess30FirstV <- coxph(surv_less30firstV ~ MARRIED + OEFOIF
                    data = medicatedVa_datFirstV)
 ggforest(fit.coxphLess30FirstV, data = medicatedVa_datFirstV)
 ```
+##H2
 
 Lets look at first visit not only in 30 days. 
+
 ```{r}
 surv_firstV <- Surv(time = medicatedVa_datFirstV$MEDTOTDAY, event = medicatedVa_datFirstV$MHDROP)  
 summary(surv_firstV)
-fit.coxphFirstV <- coxph(surv_firstV ~ PSYCTR + MARRIED + OEFOIF + race + sumComorbid + sumMed + timeTofV, 
+fit.coxphFirstV <- coxph(surv_firstV ~ PSYCTR + MARRIED + OEFOIF + race + sumComorbidfactor + sumMedCat + timeTofV, 
                    data = medicatedVa_datFirstV)
 ggforest(fit.coxphFirstV, data = medicatedVa_datFirstV)
 ```
@@ -365,6 +368,7 @@ ggforest(fit.coxph60, data = antiDP_dat_noMFirstNA)
 ```
 
 ```{r}
+pclNoNa <- filter(antiDP_dat, !is.na(BPCLTOT))
 head(pclNoNa)
 
 ```
@@ -413,8 +417,17 @@ ggforest(fit.coxphPCL, data = pclNoNa)
 ```{r}
 # Binomial regression
 
-model1 <- glm(MONTH2 ~ scale(pclR) + scale(pclA) + scale(pclN) + scale(pclDA) + scale(pclAA) + AGE_OCT01 + VAXTM, data=pclNoNa  )
+model1 <- glm(MONTH2 ~ scale(pclR) + scale(pclA) + scale(pclN) + scale(pclDA) + scale(pclAA) + AGE_OCT01 + VATXM, data=pclNoNa)
 summary(model1)
 ```
 
+Lets look only at women:
+```{r}
+# just women
+onlyWomen <- filter(medicatedVa_dat, FEMALE==1)
+surv_objectWomen <- Surv(time = onlyWomen$MEDTOTDAY, event = onlyWomen$MHDROP)
+fit.coxphWomen <- coxph(surv_objectWomen ~ PSYCTR + MARRIED + OEFOIF + race + sumComorbidfactor + sumMedCat, 
+                   data = onlyWomen)
+ggforest(fit.coxphWomen, data = onlyWomen, main = "Only Woman")
+```
 
