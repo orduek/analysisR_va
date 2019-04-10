@@ -46,7 +46,7 @@ ggforest(fit.coxphAnx, data = antiANX_dat)
 Do the same for anti psychotic
 ```{r}
 # Anti Psychotic without any previous med
-antiAPX_dat <- dplyr::filter(vaDatclean, !is.na(APSRXN) & is.na(PREADRX) & is.na(PREAPRX) & is.na(PREAXRX) & is.na(PRESTIRX) & is.na(PREACRX) & is.na(PRELIRX) & is.na(PREOPRX) & is.na(PREPRZRX) & is.na(ADRXN)) 
+antiAPX_dat <- dplyr::filter(vaDatclean, !is.na(APSRXN) & is.na(PREADRX) & is.na(PREAPRX) & is.na(PREAXRX) & is.na(PRESTIRX) & is.na(PREACRX) & is.na(PRELIRX) & is.na(PREOPRX) & is.na(PREPRZRX)) 
 head(antiAPX_dat)
 ```
 

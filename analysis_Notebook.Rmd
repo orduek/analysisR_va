@@ -1,0 +1,109 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+```{r}
+library(tidyverse)
+vaDat <- read_csv('/home/or/Downloads/va_data/MED_Drop.csv')
+head(vaDatclean)
+```
+
+```{r}
+vaDatclean <- vaDat
+# remove more than 365 psychotherapies
+vaDatclean$MHTOTALLc <- ifelse((vaDatclean$MHTOTALL > 365), (vaDatclean$MHTOTALLc = 365), (vaDatclean$MHTOTALLc = vaDatclean$MHTOTALL))
+
+
+```
+Lets do some sanity checks
+```{r}
+hist(vaDatclean$MHTOTALLc)
+
+```
+
+
+```{r}
+ggplot(vaDatclean, aes(x=vaDatclean$MHFUFRST, y=as.factor(vaDatclean$MHDROP), color=as.factor(vaDatclean$FEMALE))) + geom_boxplot()
+
+ggplot(vaDatclean, aes(x=vaDatclean$MHFUFRST, y=vaDatclean$POSTDXTOT, color=as.factor(vaDatclean$FEMALE))) + geom_point()
+```
+```{r}
+ggplot(vaDatclean, aes(x=vaDatclean$REAL8VST, y=vaDatclean$MHFUFRST, color=as.factor(vaDatclean$FEMALE))) + geom_point()
+
+```
+
+```{r}
+vaDatclean$diff1stTrt_drop = as.Date(vaDatclean$MHDROPD,format = '%m/%d/%Y') - as.Date(as.character(vaDatclean$MHPRE_DTE),format = '%m/%d/%Y') 
+
+sum(is.na(vaDatclean$diff1stTrt_drop)) # how many NAs we have
+```
+
+```{r}
+# Load required packages
+library(survival)
+library(survminer)
+surv_object <- Surv(time = vaDatclean$diff1stTrt_drop, event = vaDatclean$MHDROP)
+summary(surv_object)
+```
+
+```{r}
+# fitting
+fit1 <- survfit(surv_object ~ vaDatclean$FEMALE, data = vaDatclean) # fit the analysis with gender
+summary(fit1)
+ggsurvplot(fit1, data = vaDatclean, pval = TRUE)
+```
+
+```{r}
+# fitting
+fit2 <- survfit(surv_object ~ vaDatclean$VATXM, data = vaDatclean) # fit the analysis with gender
+summary(fit2)
+ggsurvplot(fit2, data = vaDatclean, pval = TRUE)
+```
+```{r}
+# setting index date
+a = '01/01/1960'
+vaDatclean$PTSDINDr = as.Date(as.character(a), format = '%d/%m/%Y') + vaDatclean$PTSDIND
+vaDatclean$FEMALE <- factor(vaDatclean$FEMALE, 
+                     levels = c("0", "1"), 
+                     labels = c("male", "female"))
+vaDatclean$VATXM <- factor(vaDatclean$VATXM)
+```
+
+```{r}
+vaDatclean$diffIND_drop <-  as.Date(as.character(vaDatclean$MHDROPD),format = '%m/%d/%Y')  - as.Date(vaDatclean$PTSDINDr,format = '%Y/%m/%d')
+surv_object_index <- Surv(time = vaDatclean$diffIND_drop, event = vaDatclean$MHDROP)
+fit3 <- survfit(surv_object_index ~ vaDatclean$PMEDRX, data = vaDatclean) # fit the analysis with gender
+summary(fit3)
+ggsurvplot(fit3, data = vaDatclean, pval = TRUE)
+```
+
+```{r}
+# Fit a Cox proportional hazards model
+vaDatclean$MARRIED <- factor(vaDatclean$MARRIED)
+vaDatclean$PMEDRX <- factor(vaDatclean$PMEDRX)
+fit.coxph1 <- coxph(surv_object_index ~ FEMALE  + VATXM + MARRIED + PMEDRX, 
+                   data = vaDatclean)
+ggforest(fit.coxph1, data = vaDatclean)
+```
+
+```{r}
+# create data set without previous Mental visit
+vaDatnoPrv <- subset(vaDatclean, is.na(vaDatclean$MHPRE_DTE))
+```
+Thats Half the patients!
+So we will add a variable for that
+```{r}
+vaDatclean$prePsych <- ifelse(is.na(vaDatclean$MHPRE_DTE), (vaDatclean$prePsych = 'no') , (vaDatclean$prePsych = 'yes'))
+vaDatclean$prePsych <- factor(vaDatclean$prePsych)
+```
+```{r}
+# Fit a Cox proportional hazards model
+vaDatclean$MARRIED <- factor(vaDatclean$MARRIED)
+vaDatclean$PMEDRX <- factor(vaDatclean$PMEDRX)
+fit.coxph1 <- coxph(surv_object_index ~ FEMALE  + VATXM + MARRIED + PMEDRX + prePsych, 
+                   data = vaDatclean)
+ggforest(fit.coxph1, data = vaDatclean)
+```
+
+So basically - no medication is higher risk. 

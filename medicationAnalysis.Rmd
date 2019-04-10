@@ -49,6 +49,7 @@ vaDatclean$VATXM <- factor(vaDatclean$VATXM) #, labels = c("Yes", "No"))
 # Creating Psychotherapy 0 - none or 1 = exist
 vaDatclean$PSYCTR <- dplyr::case_when(vaDatclean$INDPSY >1 | vaDatclean$GRPPSY >1 | vaDatclean$FAMPSY >1 ~ "yes", TRUE ~ "no")
 vaDatclean$PSYCTR <- factor(vaDatclean$PSYCTR)
+vaDatclean$PSYCTR <- relevel(vaDatclean$PSYCTR, "yes")
 
 vaDatclean$sumComorbidfactor <- cut(vaDatclean$sumComorbid, breaks = c(-1,0,1,3,15), labels = c("0","1", "2-3","3+"))
 plot(vaDatclean$sumComorbidfactor)
@@ -57,7 +58,7 @@ vaDatclean$ANXfactor <- factor(vaDatclean$ANXIETY)
 vaDatclean$URBAN_RURAL <- factor(vaDatclean$URBAN_RURAL)
 vaDatclean$MAJORAFFECT <- factor(vaDatclean$MAJORAFFECT)
 
-vaDatclean$race <- factor(vaDatclean$race)
+
 vaDatclean$OEFOIF <- factor(vaDatclean$OEFOIF)
 
 vaDatclean$ADRXN_true <- case_when(vaDatclean$ADRXN > 0 ~ 1, TRUE ~0)
@@ -102,6 +103,9 @@ table(medicatedVa_dat$sumMed)
 antiDP_dat <- dplyr::filter(vaDatclean, !is.na(ADRXN) & is.na(PREADRX) & is.na(PREAPRX) & is.na(PREAXRX) & is.na(PRESTIRX) & is.na(PREACRX) & is.na(PRELIRX) & is.na(PREOPRX) & is.na(PREPRZRX)) 
 head(antiDP_dat)
 
+# just to check how much people using anti depressants.
+antiDP <- filter(vaDatclean, !is.na(ADRXN))
+294224/330772
 ```
 
 Now lets look at the drugs
@@ -115,7 +119,7 @@ hist(medicatedVa_dat$MEDTOTDAY)
 drugeMore30 <- filter(medicatedVa_dat, MEDTOTDAY >= 30)
 247083/330772
 # only 74.6% of the people survive the first 30 days. 
-hist(drugeMore30$ADDAY)
+hist(drugeMore30$MEDTOTDAY)
 
 drugLess30 <- filter(medicatedVa_dat, MEDTOTDAY  <= 30)
 mean(medicatedVa_dat$ADDAY, na.rm=TRUE)
@@ -127,31 +131,95 @@ plot(density(medicatedVa_dat$ADDAY, na.rm=TRUE) )
 So - after 30 days we see major drop out. We will start by focusing on that time period. 
 ```{r}
 # first create survival model
+# drugless30 includes 84,575
+84575/330772
 library(survival)
 library(survminer)
-surv_less30 <- Surv(time = medicatedVa_dat$MEDTOTDAY, event = medicatedVa_dat$MONTH1)  
+drugLess30$psycOne <- factor(case_when(drugLess30$INDPSY >1 | drugLess30$GRPPSY >1 | drugLess30$FAMPSY >1 ~ "yes", TRUE ~ "no"))
+drugLess30$psycOne <- relevel(drugLess30$psycOne, "yes")
+surv_less30 <- Surv(time = drugLess30$MEDTOTDAY, event = drugLess30$MONTH1)  
 summary(surv_less30)
+summary(drugLess30$MEDTOTDAY)
 # now cox analysis
-fit.coxphLess30 <- coxph(surv_less30 ~ FEMALE  + PSYCTR + MARRIED + ageCat + race + sumComorbid + sumMed, 
+fit.coxphLess30 <- coxph(surv_less30 ~ psycOne + MARRIED + OEFOIF + race , 
+                   data = drugLess30)
+ggforest(fit.coxphLess30, data = drugLess30)
+```
+```{r}
+# lets do survival analysis just with psychotherapy
+fit1 <- survfit(surv_less30 ~ drugLess30$psycOne, data = drugLess30) # fit the analysis with gender
+ggsurvplot(fit1, data = drugLess30, pval = TRUE)
+table(drugLess30$psycOne, drugLess30$MEDTOTDAY)
+mean(drugLess30$MEDTOTDAY[drugLess30$psycOne=='yes'])
+```
+
+Now we will create the same analysis, but for all patients under medication, and we will check the effect of more than one psychotherapy sessions (not more than 0)
+```{r}
+# 
+surv_all <- Surv(time = medicatedVa_dat$MEDTOTDAY, event = medicatedVa_dat$MHDROP)  
+summary(surv_all)
+medicatedVa_dat$psycOne <- factor(case_when(medicatedVa_dat$INDPSY >1 | medicatedVa_dat$GRPPSY >1 | medicatedVa_dat$FAMPSY >1 ~ "yes", TRUE ~ "no"))
+medicatedVa_dat$psycOne <- relevel(medicatedVa_dat$psycOne, "yes")
+# now cox analysis
+fit.coxAll <- coxph(surv_all ~ PSYCTR + MARRIED + OEFOIF + race + sumMedCat + sumComorbidfactor, 
                    data = medicatedVa_dat)
-ggforest(fit.coxphLess30, data = medicatedVa_dat)
+ggforest(fit.coxAll, data = medicatedVa_dat)
 ```
 
+Now lets see the effect of psychotherapy.
 ```{r}
-model30 <- glm(MONTH1 ~ scale(PSYCTHR) + MARRIED + scale(medicatedVa_dat$AGE_OCT01) + race + scale(medicatedVa_dat$sumComorbid) + scale(sumMed), data = medicatedVa_dat)
+fit_psych <- survfit(surv_all ~ medicatedVa_dat$PSYCTR, data = medicatedVa_dat) # fit the analysis with gender
+#summary(fit1)
+ggsurvplot(fit_psych, data = medicatedVa_dat, pval = TRUE)
+```
+
+
+```{r}
+model30 <- glm(MONTH1 ~ PSYCTHR + MARRIED + AGE_OCT01 + race + sumComorbid + sumMed, data = medicatedVa_dat)
 summary(model30)
-summ(model30, exp = TRUE)
-plot
+summ(model30, exp = TRUE, scale =TRUE, digits = 5)
+library(ggstance)
+plot_summs(model30, scale = TRUE, plot.distributions = TRUE)
+export_summs(model30, scale = TRUE, error_format = "[{conf.low}, {conf.high}]", digits = 5)
+```
+
+Now we will omit those who didn't have first visit at all and look at the data with time to first visit. 
+```{r}
+medicatedVa_datFirstV <-  subset(medicatedVa_dat, !is.na(medicatedVa_dat$MHFUFRST))
+307798/330772
+medicatedVa_datFirstV$timeTofV <- factor(case_when(medicatedVa_datFirstV$MHFUFRST<=7 ~ "7", medicatedVa_datFirstV$MHFUFRST > 7 & medicatedVa_datFirstV$MHFUFRST <= 14 ~ "7-14", TRUE ~ "14+"))
+plot(medicatedVa_datFirstV$timeTofV)
+summary(medicatedVa_datFirstV$MHFUFRST)
+head(medicatedVa_datFirstV)
+surv_less30firstV <- Surv(time = medicatedVa_datFirstV$MEDTOTDAY, event = medicatedVa_datFirstV$MONTH1)  
+summary(surv_less30firstV)
+```
+We can create a Cox Hazard analysis with those variables
+```{r}
+fit.coxphLess30FirstV <- coxph(surv_less30firstV ~ MARRIED + OEFOIF
+                    + race + sumComorbidfactor + sumMedCat, 
+                   data = medicatedVa_datFirstV)
+ggforest(fit.coxphLess30FirstV, data = medicatedVa_datFirstV)
+```
+
+Lets look at first visit not only in 30 days. 
+```{r}
+surv_firstV <- Surv(time = medicatedVa_datFirstV$MEDTOTDAY, event = medicatedVa_datFirstV$MHDROP)  
+summary(surv_firstV)
+fit.coxphFirstV <- coxph(surv_firstV ~ PSYCTR + MARRIED + OEFOIF + race + sumComorbid + sumMed + timeTofV, 
+                   data = medicatedVa_datFirstV)
+ggforest(fit.coxphFirstV, data = medicatedVa_datFirstV)
 ```
 
 
-So. average use of anti depressant is 101.9 days. SD is 111 and median is 61. 
+Now we go to antidepressants:
 
-
-Cleaning to anti dperessant and removing any patient with pre subscribed drug (before index day). We now have 151,131 patients. 
-Now we should create age and comorbid categorical variables. 
 ```{r}
+151131/330772
+plot(antiDP_dat$sumMedCat)
+table(antiDP_dat$sumMedCat)
 plot(antiDP_dat$ageCat)
+
 ```
 
 Now lets do survival analysis
@@ -194,32 +262,43 @@ Lets check only with Anxiety disorder.
 ######################################################################
 ######################################################################
 ############### ANALYSIS ANTI DEPRESSANTS #################
-fit.coxph3 <- coxph(surv_object ~ FEMALE  + PSYCTR + MARRIED + OEFOIF + race + sumComorbidfactor, 
+fit.coxph3 <- coxph(surv_object ~ PSYCTR + MARRIED + OEFOIF + race + sumComorbidfactor + sumMedCat, 
                    data = antiDP_dat)
-ggforest(fit.coxph3, data = antiDP_dat)
+ggforest(fit.coxph3, data = antiDP_dat, main = "Anti Depressant")
 ```
-
-
-Check what happens with more than one medication:
+Lets take anxiolitics now
 ```{r}
-antiDP_dat$ADRXN_true <- case_when(antiDP_dat$ADRXN > 0 ~ 1, TRUE ~0)
-antiDP_dat$APSRXN_true <- case_when(antiDP_dat$APSRXN >0 ~ 1, TRUE ~0)
-antiDP_dat$AXSEDHPRXN_true <- case_when(antiDP_dat$AXSEDHPRXN >0 ~ 1, TRUE ~0)
-antiDP_dat$STIMRXN_true <- case_when(antiDP_dat$STIMRXN > 0 ~ 1, TRUE ~ 0)
-antiDP_dat$ACVMSRXN_true <- case_when(antiDP_dat$ACVMSRXN > 0 ~ 1, TRUE ~ 0)
-antiDP_dat$LIRXN_true <- case_when(antiDP_dat$LIRXN > 0 ~ 1, TRUE ~ 0)
-
-antiDP_dat$sumMed <- antiDP_dat$LIRXN_true + antiDP_dat$ACVMSRXN_true + antiDP_dat$STIMRXN_true + antiDP_dat$AXSEDHPRXN_true + antiDP_dat$APSRXN_true + antiDP_dat$ADRXN_true 
-antiDP_dat$sumMedCat <- factor(case_when(antiDP_dat$sumMed==1 ~ '1', antiDP_dat$sumMed == 2 ~ "2", antiDP_dat$sumMed >= 3 ~ "3+"))
+antiANX_dat <- dplyr::filter(vaDatclean, !is.na(AXSEDHPRXN) & is.na(PREADRX) & is.na(PREAPRX) & is.na(PREAXRX) & is.na(PRESTIRX) & is.na(PREACRX) & is.na(PRELIRX) & is.na(PREOPRX) & is.na(PREPRZRX)) 
+60641/330772
+surv_objectAnx <- Surv(time = antiANX_dat$MEDTOTDAY, event = antiANX_dat$MHDROP)
+fit.coxph4 <- coxph(surv_objectAnx ~ PSYCTR + MARRIED + OEFOIF + race + sumComorbidfactor + sumMedCat, 
+                   data = antiANX_dat)
+summary(fit.coxph4)
+ggforest(fit.coxph4, data = antiANX_dat)
 
 ```
 
+Anti psychotics
 ```{r}
-### Including more than one medication ####
-fit.coxph4 <- coxph(surv_object ~ FEMALE  + VATXM + MARRIED + OEFOIF + race + sumComorbidfactor + sumMedCat, 
-                   data = antiDP_dat)
-ggforest(fit.coxph4, data = antiDP_dat)
+antiAPX_dat <- dplyr::filter(vaDatclean, !is.na(APSRXN) & is.na(PREADRX) & is.na(PREAPRX) & is.na(PREAXRX) & is.na(PRESTIRX) & is.na(PREACRX) & is.na(PRELIRX) & is.na(PREOPRX) & is.na(PREPRZRX)) 
+
+28997/330772
+surv_objectApx <- Surv(time = antiAPX_dat$MEDTOTDAY, event = antiAPX_dat$MHDROP)
+fit.coxph5 <- coxph(surv_objectApx ~ PSYCTR + MARRIED + OEFOIF + race + sumComorbidfactor + sumMedCat, 
+                   data = antiAPX_dat)
+print(ggforest(fit.coxph5, data = antiAPX_dat, main = "Anti Psychotic"))
 ```
+```{r}
+splots = NULL
+splots1 <- ggforest(fit.coxph3, data = antiDP_dat)
+splots2 <- ggforest(fit.coxph4, data = antiANX_dat)
+splots3 <- ggforest(fit.coxph5, data = antiAPX_dat)
+pdf("threplots.pdf")
+ggarrange(splots1, splots2, splots3, ncol = 1, nrow = 3, labels = c("A-D","A-X","A-P")) #, widths = c(2,2,2))
+dev.off()
+ggforest(fit.coxph4, data = antiANX_dat, main = "Anxiolytics")
+```
+
 
 ```{r}
 antiDP_dat$APSRXN_trueMore <- factor(case_when(antiDP_dat$APSRXN >1 ~ 1, TRUE ~0))
