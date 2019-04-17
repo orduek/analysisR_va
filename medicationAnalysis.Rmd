@@ -148,7 +148,7 @@ ggforest(fit.coxphLess30, data = drugLess30)
 ```{r}
 # lets do survival analysis just with psychotherapy
 fit1 <- survfit(surv_less30 ~ drugLess30$psycOne, data = drugLess30) # fit the analysis with gender
-ggsurvplot(fit1, data = drugLess30, pval = TRUE)
+ggsurvplot(fit1, data = drugLess30, pval = TRUE, conf.int = TRUE)
 table(drugLess30$psycOne, drugLess30$MEDTOTDAY)
 mean(drugLess30$MEDTOTDAY[drugLess30$psycOne=='yes'])
 ```
@@ -170,7 +170,7 @@ Now lets see the effect of psychotherapy.
 ```{r}
 fit_psych <- survfit(surv_all ~ medicatedVa_dat$PSYCTR, data = medicatedVa_dat) # fit the analysis with gender
 #summary(fit1)
-ggsurvplot(fit_psych, data = medicatedVa_dat, pval = TRUE)
+ggsurvplot(fit_psych, data = medicatedVa_dat, pval = TRUE, conf.int = TRUE)
 ```
 
 
@@ -237,29 +237,9 @@ summary(surv_object)
 # fitting
 fit1 <- survfit(surv_object ~ antiDP_dat$VATXM, data = antiDP_dat) # fit the analysis with gender
 #summary(fit1)
-ggsurvplot(fit1, data = antiDP_dat, pval = TRUE)
-```
-Seems like VAXTM is very good. Lets do hazard analysis. 
-
-```{r}
-# Hazard analysis
-fit.coxph1 <- coxph(surv_object ~ FEMALE  + VATXM + MARRIED + ageCat, 
-                   data = antiDP_dat)
-ggforest(fit.coxph1, data = antiDP_dat)
+ggsurvplot(fit1, data = antiDP_dat, pval = TRUE, conf.int = TRUE)
 ```
 
-Now we should add comorbidity
-
-```{r}
-plot(antiDP_dat$sumComorbidfactor)
-```
-
-```{r}
-fit.coxph2 <- coxph(surv_object ~ FEMALE  + VATXM + MARRIED + ageCat + sumComorbidfactor, 
-                   data = antiDP_dat)
-ggforest(fit.coxph2, data = antiDP_dat)
-```
-Lets check only with Anxiety disorder.
 
 ```{r}
 ######################################################################
@@ -278,7 +258,6 @@ fit.coxph4 <- coxph(surv_objectAnx ~ PSYCTR + MARRIED + OEFOIF + race + sumComor
                    data = antiANX_dat)
 summary(fit.coxph4)
 ggforest(fit.coxph4, data = antiANX_dat)
-
 ```
 
 Anti psychotics
@@ -289,31 +268,8 @@ antiAPX_dat <- dplyr::filter(vaDatclean, !is.na(APSRXN) & is.na(PREADRX) & is.na
 surv_objectApx <- Surv(time = antiAPX_dat$MEDTOTDAY, event = antiAPX_dat$MHDROP)
 fit.coxph5 <- coxph(surv_objectApx ~ PSYCTR + MARRIED + OEFOIF + race + sumComorbidfactor + sumMedCat, 
                    data = antiAPX_dat)
-print(ggforest(fit.coxph5, data = antiAPX_dat, main = "Anti Psychotic"))
+ggforest(fit.coxph5, data = antiAPX_dat, main = "Anti Psychotic")
 ```
-```{r}
-splots = NULL
-splots1 <- ggforest(fit.coxph3, data = antiDP_dat)
-splots2 <- ggforest(fit.coxph4, data = antiANX_dat)
-splots3 <- ggforest(fit.coxph5, data = antiAPX_dat)
-pdf("threplots.pdf")
-ggarrange(splots1, splots2, splots3, ncol = 1, nrow = 3, labels = c("A-D","A-X","A-P")) #, widths = c(2,2,2))
-dev.off()
-ggforest(fit.coxph4, data = antiANX_dat, main = "Anxiolytics")
-```
-
-
-```{r}
-antiDP_dat$APSRXN_trueMore <- factor(case_when(antiDP_dat$APSRXN >1 ~ 1, TRUE ~0))
-antiDP_dat$AXSEDHPRXN_trueMore <- factor(case_when(antiDP_dat$AXSEDHPRXN >1 ~ 1, TRUE ~0))
-### Including more than one medication ####
-fit.coxph5 <- coxph(surv_object ~ FEMALE  + VATXM + MARRIED + OEFOIF + race + sumComorbidfactor + APSRXN_trueMore + AXSEDHPRXN_trueMore, 
-                   data = antiDP_dat)
-ggforest(fit.coxph5, data = antiDP_dat)
-```
-
-
-
 
 
 Lets check MHFUFRST. First meeting after index day
@@ -325,6 +281,7 @@ median(antiDP_dat_noMFirstNA$MHFUFRST)
 antiDP_dat_noMFirstNA$firstV <- factor(case_when(antiDP_dat_noMFirstNA$MHFUFRST<=30 ~ "Low_Waiting", antiDP_dat_noMFirstNA$MHFUFRST>30 ~ "High_Waiting"))
 plot(antiDP_dat_noMFirstNA$firstV)
 ```
+
 Now we will create a new analysis, only on this data set. 
 ```{r}
 surv_object_clean <- Surv(time = antiDP_dat_noMFirstNA$MEDTOTDAY, event = antiDP_dat_noMFirstNA$MHDROP)
@@ -341,37 +298,15 @@ fit.coxphClean <- coxph(surv_object_clean ~ FEMALE  + VATXM + MARRIED + ageCat +
 ggforest(fit.coxphClean, data = antiDP_dat_noMFirstNA)
 ```
 
-Lets check what happens if we cut after 120 days. 
-```{r}
-# create new timevar with maximum of 120 days
-antiDP_dat_noMFirstNA$MEDTOTDAY_max120 <- case_when(antiDP_dat_noMFirstNA$MEDTOTDAY>= 120 ~ 120, TRUE ~ antiDP_dat_noMFirstNA$MEDTOTDAY)
-surv_object_120 <- Surv(time = antiDP_dat_noMFirstNA$MEDTOTDAY_max120, event = antiDP_dat_noMFirstNA$MONTH4)
-summary(surv_object_120)
-```
-```{r}
-fit.coxph120 <- coxph(surv_object_120 ~ FEMALE  + VATXM + MARRIED + ageCat + race + firstV, 
-                   data = antiDP_dat_noMFirstNA)
-ggforest(fit.coxph120, data = antiDP_dat_noMFirstNA)
-```
-
-Now lets go for the median (i.e. 60 days)
-```{r}
-antiDP_dat_noMFirstNA$MEDTOTDAY_max60 <- case_when(antiDP_dat_noMFirstNA$MEDTOTDAY>= 60 ~ 60, TRUE ~ antiDP_dat_noMFirstNA$MEDTOTDAY)
-surv_object_60 <- Surv(time = antiDP_dat_noMFirstNA$MEDTOTDAY_max60, event = antiDP_dat_noMFirstNA$MONTH2)
-summary(surv_object_60)
-```
-
-```{r}
-fit.coxph60 <- coxph(surv_object_60 ~ FEMALE  + VATXM + MARRIED + ageCat + race + firstV + MAJORAFFECT, 
-                   data = antiDP_dat_noMFirstNA)
-ggforest(fit.coxph60, data = antiDP_dat_noMFirstNA)
-```
+#H1
+Looking at effect of symptom clusters on adherence. 
 
 ```{r}
 pclNoNa <- filter(antiDP_dat, !is.na(BPCLTOT))
 head(pclNoNa)
 
 ```
+
 
 ```{r}
 # create five factor pcl scores
@@ -429,5 +364,39 @@ surv_objectWomen <- Surv(time = onlyWomen$MEDTOTDAY, event = onlyWomen$MHDROP)
 fit.coxphWomen <- coxph(surv_objectWomen ~ PSYCTR + MARRIED + OEFOIF + race + sumComorbidfactor + sumMedCat, 
                    data = onlyWomen)
 ggforest(fit.coxphWomen, data = onlyWomen, main = "Only Woman")
+```
+#H1
+Now we will run a new analysis. Taking into account only 3 kinds of medications: anti depressants, anxiolytics and anti psychotics
+
+```{r}
+# Take anti depressants, anti psychotics and anxiolytics without any prior medications. 
+threeMeds <- filter(medicatedVa_datFirstV, !is.na(AXSEDHPRXN) | !is.na(ADRXN) | !is.na(APSRXN) & is.na(PREADRX) & is.na(PREAPRX) & is.na(PREAXRX) & is.na(PRESTIRX) & is.na(PREACRX) & is.na(PRELIRX) & is.na(PREOPRX) & is.na(PREPRZRX) )
+surv_objectThreeMed <- Surv(time = threeMeds$MEDTOTDAY, event = threeMeds$MHDROP)
+```
+
+A total of 318,738 patients received either AD, ANX or APX without previous medications (prior to index day).
+A total of 279,809 also had one more MH meeting after index day
+
+```{r}
+fit.coxphThreeMeds <- coxph(surv_objectThreeMed ~ PSYCTR + MARRIED + OEFOIF +  race + sumComorbidfactor + sumMedCat, 
+                   data = threeMeds)
+ggforest(fit.coxphThreeMeds, data = threeMeds, main = "3 Medications")
+```
+
+```{r}
+library(DiagrammeR)
+grViz(
+  "digraph rmarkdown {
+node [shape = box, width = 2.5, fillcolor = lightCyan, style = filled]
+a [label = 'Total Medicated\n 330,721', fillcolor = Azure] 
+b [label = 'Three medications\n 318,738']
+c [label = 'Three Medications and visit\n 279,809', fillcolor = cyan]
+d [label = 'Total number of patients\n 502,036', fillcolor = white]
+a -> b [label = 'Including AD, AX and APX', fontsize = 10] 
+b-> c [label = 'Including only ones with MH visit after index day', fontsize = 10]
+d -> a
+
+  }"
+)
 ```
 

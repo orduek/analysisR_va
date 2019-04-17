@@ -1,0 +1,24 @@
+---
+title: "Untitled"
+author: "Or Duek"
+date: "April 15, 2019"
+output: html_document
+---
+
+
+```{r}
+library(DiagrammeR)
+grViz(
+  "digraph rmarkdown {
+node [shape = box, width = 2.5, fillcolor = lightCyan, style = filled]
+a [label = 'Total Medicated\n 330,721', fillcolor = Azure] 
+b [label = 'Three medications\n 318,738']
+c [label = 'Three Medications and visit\n 279,809', fillcolor = cyan]
+d [label = 'Total number of patients\n 502,036', fillcolor = white]
+a -> b [label = 'Including AD, AX and APX', fontsize = 10] 
+b-> c [label = 'Including only ones with MH visit after index day', fontsize = 10]
+d -> a
+
+  }"
+)
+```
