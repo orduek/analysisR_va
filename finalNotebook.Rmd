@@ -7,10 +7,12 @@ output:
 This is the final analysis for the VA paper. 
 All changes will be done on this one
 
-```{r loading_data}
+```{r loading_data,cache=FALSE}
 # load data
 library(tidyverse)
 library(jtools)
+library(survival)
+library(survminer)
 vaDat <- read_csv('/home/or/Dropbox/postdoc/Yale/va_data/MED_Drop.csv')
 
 vaDatclean <- vaDat
@@ -28,7 +30,7 @@ head(vaDatclean)
 ```
 
 
-```{r creating_vars}
+```{r creating_vars, echo=FALSE}
 # create a few variables before stratification
 # Race
 vaDatclean$race <- dplyr::case_when(vaDatclean$BLACK==1 ~ "Black",vaDatclean$WHITE==1 ~ "White", vaDatclean$HISPANIC==1 ~ "Hispanic", vaDatclean$ASIAN ==1 ~ "Asian", TRUE ~ "Other")
@@ -41,7 +43,10 @@ vaDatclean$ageCat <- cut(vaDatclean$AGE_OCT01, breaks = c(15, 25, 35, 45, 60, 90
 plot(vaDatclean$ageCat)
 # check comorbidity
 vaDatclean$sumComorbid <- vaDatclean$DEMENT_ALZ + vaDatclean$ALC + vaDatclean$DRUG + vaDatclean$SCHIZOPHRENIA + vaDatclean$OTHERPSYCHOSIS + vaDatclean$BIPOLAR + vaDatclean$MAJORAFFECT + vaDatclean$OTHERDEP + vaDatclean$ANXIETY + vaDatclean$ADJUSTMENT + vaDatclean$PERSONALITY + vaDatclean$BORDERLINE
-#antiDP_dat$comorbid <- dplyr::case_when(antiDP_dat$DEMENT_ALZ!=0 ~ "Dementia", antiDP_dat$ALC !=0 ~"Alcohol", )
+
+
+# vaDatclean$comorbid <- dplyr::case_when(vaDatclean$DEMENT_ALZ !=0 ~ "Dementia", vaDatclean$ALC !=0 ~"Alcohol", vaDatclean$DRUG != 0 ~ "Drug", vaDatclean$SCHIZOPHRENIA != 0 ~ "Schizophrenia", vaDatclean$OTHERPSYCHOSIS!= 0 ~ "OtherPsychosis", vaDatclean$BIPOLAR != 0 ~ "Bipolar", vaDatclean$MAJORAFFECT != 0 ~ "Major Affective", vaDatclean$OTHERDEP != ~ "OtherDepression", vaDatclean$ANXIETY != 0 ~ "Anxiety", vaDatclean$ADJUSTMENT != 0 ~ "Adjustment", vaDatclean$PERSONALITY != 0 ~ "Personality", vaDatclean$BORDERLINE != 0 ~"Borderline")
+
 vaDatclean$MARRIED <- factor(vaDatclean$MARRIED)
 
 vaDatclean$FEMALE <- factor(vaDatclean$FEMALE)
@@ -82,7 +87,119 @@ Lets take just medicated patients, before stratify to different groups of medica
 # take just medicated patients. 
 medicatedVa_dat <- filter(vaDatclean, PMEDRX==1)
 head(medicatedVa_dat)
+# take only patients with first MH visit after index date
+medicatedVa_datFirstV <-  subset(medicatedVa_dat, !is.na(medicatedVa_dat$MHFUFRST))
+medicatedVa_datFirstV$timeTofV <- factor(case_when(medicatedVa_datFirstV$MHFUFRST<=7 ~ "7", medicatedVa_datFirstV$MHFUFRST>7 & medicatedVa_datFirstV$MHFUFRST<=30 ~ "7-30", TRUE ~ "30+"))
+
+medicatedVa_datFirstV$timeTofV <- relevel(medicatedVa_datFirstV$timeTofV, "30+" )
+```
+
+```{r three_meds}
+# Take anti depressants, anti psychotics and anxiolytics without any prior medications. 
+threeMeds <- filter(medicatedVa_datFirstV, !is.na(AXSEDHPRXN) | !is.na(ADRXN) | !is.na(APSRXN) & is.na(PREADRX) & is.na(PREAPRX) & is.na(PREAXRX) & is.na(PRESTIRX) & is.na(PREACRX) & is.na(PRELIRX) & is.na(PREOPRX) & is.na(PREPRZRX))
+```
+
+## Medicated patient's charectaristics
+```{r char}
+summary(threeMeds$AGE_OCT01)
+sd(threeMeds$AGE_OCT01, na.rm = TRUE)
+plot(threeMeds$AGE_OCT01)
+# we find 7 people above the age of 100. Talk with Ilan to decide what to do. 
+ageUnreason <- filter(threeMeds, threeMeds$AGE_OCT01>100)
+
+#####Comorbidity
+table(threeMeds$sumComorbidfactor)
+
+## number of days with medication
+summary(threeMeds$MEDTOTDAY)
+sd(threeMeds$MEDTOTDAY)
+```
+## Now we begin to run the survival analysis. 
+```{r survival_analysis}
+# this is the basic survival object. It can be used for specific survival graphs or for Cox Proportional Hazard
+surv_objectThreeMed <- Surv(time = threeMeds$MEDTOTDAY, event = threeMeds$MHDROP)
+```
+
+```{r cox_hazard}
+# Cox modeling
+fit.coxphThreeMeds <- coxph(surv_objectThreeMed ~ PSYCTR + MARRIED + OEFOIF +  race + timeTofV +sumComorbid + sumMed, 
+                   data = threeMeds)
+# Graph
+ggforest(fit.coxphThreeMeds, data = threeMeds, main = "3 Medications")
+```
+
+```{r 30_days}
+hist(threeMeds$MEDTOTDAY)
+threeMeds_30days <- filter(threeMeds, threeMeds$MEDTOTDAY<=30)
+surv_30days <- Surv(time = threeMeds_30days$MEDTOTDAY, event = threeMeds_30days$MHDROP)
+summary(surv_30days)
+#Cox modeling
+fit.coxphThreeMeds30 <- coxph(surv_30days ~ PSYCTR + MARRIED + OEFOIF +  race + timeTofV +sumComorbid + sumMed, 
+                   data = threeMeds_30days)
+# Graph
+ggforest(fit.coxphThreeMeds30, data = threeMeds_30days, main = "3 Medications - 30 Days")
+```
+## Lastly, We are going to conduct a binomial regression analysis on patients that have valid PCL scores.
+
+```{r pcl_charac}
+# characteristics of pcl sample
+pclNoNa <- filter(threeMeds, !is.na(BPCLTOT))
+# pcl database contains 
+nrow(pclNoNa) 
+```
+
+### A total of 109,791 patients had PCL scores.
+
+```{r}
+# create five factor pcl scores
+# 1-5 Reexpirienceing (R)
+# 6-7 avoidance (A)
+# 8-12 emotional numbing (N)
+# 13-15 disphoric arousal (DA)
+# 16-17 Anxios arousal (AA)
+pclNoNa$pclR <- pclNoNa$PCL1 + pclNoNa$PCL2 + pclNoNa$PCL3 + pclNoNa$PCL4 + pclNoNa$PCL5
+pclNoNa$pclA <- pclNoNa$PCL6 + pclNoNa$PCL7
+pclNoNa$pclN <- pclNoNa$PCL8 + pclNoNa$PCL9 + pclNoNa$PCL10 + pclNoNa$PCL11 + pclNoNa$PCL12
+pclNoNa$pclDA <- pclNoNa$PCL13 + pclNoNa$PCL14 + pclNoNa$PCL15
+pclNoNa$pclAA <- pclNoNa$PCL16 + pclNoNa$PCL17
+pclNoNa$catpclR <- case_when(pclNoNa$pclR < median(pclNoNa$pclR, na.rm = TRUE) ~ "Low Rex", TRUE ~ "High Rex")
+pclNoNa$catpclA <- case_when(pclNoNa$pclA < median(pclNoNa$pclA, na.rm = TRUE)~ "Low A", TRUE ~ "High A")
+pclNoNa$catpclN <- case_when(pclNoNa$pclN < median(pclNoNa$pclN, na.rm = TRUE)~ "Low N", TRUE ~ "High N")
+pclNoNa$catpclDA <- case_when(pclNoNa$pclDA < median(pclNoNa$pclDA, na.rm = TRUE)~ "Low Da", TRUE ~ "High DA")
+pclNoNa$catpclAA <- case_when(pclNoNa$pclAA < median(pclNoNa$pclAA, na.rm = TRUE)~ "Low AA", TRUE ~ "High AA")
+table(pclNoNa$catpclR)
 ```
 
 
-# Medicated patient's charectaristics
+```{r}
+surv_objectPCL <- Surv(time = pclNoNa$MEDTOTDAY, event = pclNoNa$MHDROP)
+summary(surv_objectPCL)
+```
+```{r}
+# do hazard analysis using PCL R category
+pclNoNa$catpclR <- factor(pclNoNa$catpclR)
+pclNoNa$catpclN <- factor(pclNoNa$catpclN)
+pclNoNa$catpclA <- factor(pclNoNa$catpclA)
+pclNoNa$catpclDA <- factor(pclNoNa$catpclDA)
+pclNoNa$catpclAA <- factor(pclNoNa$catpclAA)
+fit.coxphPCL <- coxph(surv_objectPCL ~  PSYCTR + MARRIED + OEFOIF +  race + timeTofV +sumComorbid + sumMed +  catpclR + catpclN + catpclA + catpclAA + catpclDA, 
+                   data = pclNoNa)
+ggforest(fit.coxphPCL, data = pclNoNa)
+```
+
+```{r binomialReg}
+# Binomial regression
+
+model1 <- glm(MONTH6 ~ scale(pclR) + scale(pclA) + scale(pclN) + scale(pclDA) + scale(pclAA) + AGE_OCT01 + PSYCTR + sumComorbid + sumMed, data=pclNoNa)
+summary(model1)
+```
+
+We can plot it
+
+```{r PlotBinom}
+summ(model1, exp = TRUE, scale =TRUE, digits = 5)
+library(ggstance)
+plot_summs(model1, scale = TRUE, plot.distributions = TRUE)
+export_summs(model1, scale = TRUE, error_format = "[{conf.low}, {conf.high}]", digits = 5)
+```
+
