@@ -2,12 +2,14 @@
 title: "finalAnalyses"
 author: "Or Duek"
 date: "6/7/2019"
-output: html_document
+output:
+  pdf_document: default
+  html_document: default
 ---
 This is the final analysis for the VA paper. 
 All changes will be done on this one
 
-```{r loading_data,cache=FALSE}
+```{r loading_data,cache=FALSE, echo=FALSE}
 # load data
 library(tidyverse)
 library(jtools)
@@ -79,26 +81,11 @@ vaDatclean$MONTH1 <- case_when(vaDatclean$totalDays <= 30 ~ 1, TRUE ~ 0)
 
 ```
 
-```{r time_censore_vars}
-########## Create new censore and time variables (according to discussion with Ilan) #############################
-# Build censor var for antidepressants
-# build cencor var for anxiolytics
-# build cencor var for anti psychotic
-# build total cencor var (three medd)
-# build timevar for anti depressant (last -first rx)
-# build timevar for anxiolytic (last-first rx)
-# build timevar for anti psychotic (last - first rx)
-# build total timevar (last rx - first rx between all those meds)
-# 
-
-
-##################################################################################################################
-```
 
 
 Lets take just medicated patients, before stratify to different groups of medication.
 
-```{r filter_med}
+```{r filter_med, echo=FALSE}
 # take just medicated patients. 
 medicatedVa_dat <- filter(vaDatclean, PMEDRX==1)
 head(medicatedVa_dat)
@@ -108,3 +95,169 @@ medicatedVa_datFirstV$timeTofV <- factor(case_when(medicatedVa_datFirstV$MHFUFRS
 
 medicatedVa_datFirstV$timeTofV <- relevel(medicatedVa_datFirstV$timeTofV, "30+" )
 ```
+```{r time_censore_vars, echo=FALSE}
+########## Create new censore and time variables (according to discussion with Ilan) #############################
+# Build censor var for antidepressants
+# will calculate ADDAY again - just to make sure we're ok
+# as.Date(as.character(vaDatclean$MHDROPD),format = '%m/%d/%Y')  - as.Date(vaDatclean$PTSDINDr,format = '%Y/%m/%d')
+# building a censoring variable by 180days (as we're not sure about the 365 one)
+medicatedVa_dat$antiDPCensore <- case_when(medicatedVa_dat$ADDAY>=180 ~ 0, medicatedVa_dat$ADDAY<180 ~ 1, is.na(medicatedVa_dat$ADDAY) ~ NA_real_, TRUE ~ 3)
+summary(medicatedVa_dat$antiDPCensore)
+table(medicatedVa_dat$antiDPCensore)
+table(medicatedVa_dat$MHDROP)
+# build cencor var for anxiolytics
+medicatedVa_dat$antiAXCensore <- case_when(medicatedVa_dat$AXDAY>=180 ~ 0, medicatedVa_dat$AXDAY<180 ~ 1, is.na(medicatedVa_dat$AXDAY) ~ NA_real_, TRUE ~ 3)
+table(medicatedVa_dat$antiAXCensore)
+# build cencor var for anti psychotic
+medicatedVa_dat$antiPCensore <- case_when(medicatedVa_dat$APSDAY>=180 ~ 0, medicatedVa_dat$APSDAY<180 ~ 1, is.na(medicatedVa_dat$APSDAY) ~ NA_real_, TRUE ~ 3)
+table(medicatedVa_dat$antiPCensore)
+
+# build timevar for anti depressant (last -first rx)
+
+# build timevar for anxiolytic (last-first rx)
+# build timevar for anti psychotic (last - first rx)
+# build total timevar (last rx - first rx between all those meds)
+  # take date of first rx of first med and last rx of last med and calculate number of days
+  # create var of first date (that compared antiDP, antiolytic and antipsychotic)
+  # create a var of last date
+  # new var of total days
+# build total cencor var (three med)
+ 
+
+##################################################################################################################
+```
+## Now we go medication by medication:
+First -- Anti depression
+
+```{r antiDP_analysis, echo=FALSE}
+# now we clean data
+# take only anti depressant without any medication before index day
+antiDP_dat <- dplyr::filter(medicatedVa_dat, !is.na(ADRXN) & is.na(PREADRX) & is.na(PREAPRX) & is.na(PREAXRX) & is.na(PRESTIRX) & is.na(PREACRX) & is.na(PRELIRX) & is.na(PREOPRX) & is.na(PREPRZRX)) 
+head(antiDP_dat)
+
+## survival model
+surv_antiDP <- Surv(time = antiDP_dat$ADDAY, event = antiDP_dat$antiDPCensore)  
+summary(surv_antiDP)
+# now cox analysis
+fit.coxpDP <- coxph(surv_antiDP ~ PSYCTR + MARRIED + OEFOIF + race + sumComorbid + sumMed, 
+                   data = antiDP_dat)
+ggforest(fit.coxpDP, data = antiDP_dat)
+summary(fit.coxpDP)
+```
+## Anxiolytics 
+```{r anxiolytic_analysis, echo=FALSE}
+# take only anxiolytics
+antiANX_dat <- dplyr::filter(medicatedVa_dat, !is.na(AXSEDHPRXN) & is.na(PREADRX) & is.na(PREAPRX) & is.na(PREAXRX) & is.na(PRESTIRX) & is.na(PREACRX) & is.na(PRELIRX) & is.na(PREOPRX) & is.na(PREPRZRX)) 
+head(antiANX_dat)
+
+## survival model
+surv_antiANX <- Surv(time = antiANX_dat$AXDAY, event = antiANX_dat$antiAXCensore)  
+summary(surv_antiANX)
+# now cox analysis
+fit.coxpANX <- coxph(surv_antiANX ~ PSYCTR + MARRIED + OEFOIF + race + sumComorbid + sumMed, 
+                   data = antiANX_dat)
+ggforest(fit.coxpANX, data = antiANX_dat)
+summary(fit.coxpANX)
+```
+## Antipsychotics
+```{r antiPsychotic_analysis, echo=FALSE}
+antiAPX_dat <- dplyr::filter(medicatedVa_dat, !is.na(APSRXN) & is.na(PREADRX) & is.na(PREAPRX) & is.na(PREAXRX) & is.na(PRESTIRX) & is.na(PREACRX) & is.na(PRELIRX) & is.na(PREOPRX) & is.na(PREPRZRX)) 
+
+## survival model
+surv_antiAP <- Surv(time = antiAPX_dat$APSDAY, event = antiAPX_dat$antiPCensore)  
+summary(surv_antiAP)
+# now cox analysis
+fit.coxpAP <- coxph(surv_antiAP ~ PSYCTR + MARRIED + OEFOIF + race + sumComorbid + sumMed, 
+                   data = antiAPX_dat)
+ggforest(fit.coxpAP, data = antiAPX_dat)
+summary(fit.coxpAP)
+```
+
+## All 3 types of meds toghether:
+```{r allThree_analysis, echo=FALSE}
+threeMeds_dat <- dplyr::filter(medicatedVa_dat, !is.na(APSRXN) | !is.na(AXSEDHPRXN) | !is.na(ADRXN) & is.na(PREADRX) & is.na(PREAPRX) & is.na(PREAXRX) & is.na(PRESTIRX) & is.na(PREACRX) & is.na(PRELIRX) & is.na(PREOPRX) & is.na(PREPRZRX))
+# build total timevar (last rx - first rx between all those meds)
+  # take date of first rx of first med and last rx of last med and calculate number of days
+  # create var of first date (that compared antiDP, antiolytic and antipsychotic)
+threeMeds_dat$firstDateMed <- pmin(as.Date(threeMeds_dat$ADFSTRX,format = '%m/%d/%Y' ), as.Date(threeMeds_dat$APSFSTRX, format = '%m/%d/%Y'), as.Date(threeMeds_dat$AXFSTRX, format = '%m/%d/%Y'), na.rm = TRUE)
+  # create a var of last date
+threeMeds_dat$lastDateMed <- pmax(as.Date(threeMeds_dat$ADLSTRX,format = '%m/%d/%Y' ), as.Date(threeMeds_dat$APSLSTRX, format = '%m/%d/%Y'), as.Date(threeMeds_dat$AXLSTRX, format = '%m/%d/%Y'), na.rm = TRUE)
+  # new var of total days
+threeMeds_dat$totalDaysThreeMeds <- as.Date(threeMeds_dat$lastDateMed, format = '%m/%d/%Y') - as.Date(threeMeds_dat$firstDateMed, format = '%m/%d/%Y')
+hist(as.numeric(threeMeds_dat$totalDaysThreeMeds))
+# build total cencor var (three med)
+threeMeds_dat$threeMedsCensore <- case_when(threeMeds_dat$totalDaysThreeMeds>=180 ~ 0, threeMeds_dat$totalDaysThreeMeds<180 ~ 1, is.na(threeMeds_dat$totalDaysThreeMeds) ~ NA_real_, TRUE ~ 3)
+table(threeMeds_dat$threeMedsCensore)
+
+## now we do survival analysis
+surv_ThreeMeds <- Surv(time = threeMeds_dat$totalDaysThreeMeds, event = threeMeds_dat$threeMedsCensore)  
+summary(surv_ThreeMeds)
+# now cox analysis
+fit.coxpThreeMeds <- coxph(surv_ThreeMeds ~ PSYCTR + MARRIED + OEFOIF + race + sumComorbid + sumMed, 
+                   data = threeMeds_dat)
+ggforest(fit.coxpThreeMeds, data = threeMeds_dat)
+summary(fit.coxpThreeMeds)
+```
+## Results are the same in three medications toghether.
+
+
+# 30 days:
+
+```{r}
+threeMeds_30days <- filter(threeMeds_dat, threeMeds_dat$totalDaysThreeMeds<=30)
+threeMeds_30days$censore30 <- case_when(threeMeds_30days$totalDaysThreeMeds>=30 ~ 0, threeMeds_30days$totalDaysThreeMeds<30 ~ 1, is.na(threeMeds_30days$totalDaysThreeMeds) ~ NA_real_)
+## now we do survival analysis
+surv_30days <- Surv(time = threeMeds_30days$totalDaysThreeMeds, event = threeMeds_30days$censore30)  
+summary(surv_30days)
+# now cox analysis
+fit.coxp30days <- coxph(surv_30days ~ PSYCTR + MARRIED + OEFOIF + race + sumComorbid + sumMed, 
+                   data = threeMeds_30days)
+ggforest(fit.coxp30days, data = threeMeds_30days)
+summary(fit.coxp30days)
+```
+```{r binomial_regression}
+# use thr 30 days dataset to run binomial regression analysis
+
+model1 <- glm(censore30 ~ AGE_OCT01 + PSYCTR + sumComorbid + sumMed, data=threeMeds_30days, family = binomial)
+summary(model1)
+```
+## Combine PCL scores with 30 days data
+```{r pcl_charac}
+# characteristics of pcl sample
+pclNoNa <- filter(threeMeds_30days, !is.na(BPCLTOT))
+# pcl database contains 
+nrow(pclNoNa) 
+
+
+### A total of 24,418 patients had PCL scores.
+
+# create five factor pcl scores
+# 1-5 Reexpirienceing (R)
+# 6-7 avoidance (A)
+# 8-12 emotional numbing (N)
+# 13-15 disphoric arousal (DA)
+
+# 16-17 Anxios arousal (AA)
+pclNoNa$pclR <- pclNoNa$PCL1 + pclNoNa$PCL2 + pclNoNa$PCL3 + pclNoNa$PCL4 + pclNoNa$PCL5
+pclNoNa$pclA <- pclNoNa$PCL6 + pclNoNa$PCL7
+pclNoNa$pclN <- pclNoNa$PCL8 + pclNoNa$PCL9 + pclNoNa$PCL10 + pclNoNa$PCL11 + pclNoNa$PCL12
+pclNoNa$pclDA <- pclNoNa$PCL13 + pclNoNa$PCL14 + pclNoNa$PCL15
+pclNoNa$pclAA <- pclNoNa$PCL16 + pclNoNa$PCL17
+```
+
+
+```{r binomialReg}
+# Binomial regression
+model2 <- glm(censore30 ~ scale(pclR) + scale(pclA) + scale(pclN) + scale(pclDA) + scale(pclAA) + AGE_OCT01 + PSYCTR + sumComorbid + sumMed, data=pclNoNa, family = binomial)
+summary(model2)
+anova(model2)
+```
+
+```{r PlotBinom}
+summ(model2, exp = TRUE, scale =TRUE, digits = 5)
+library(ggstance)
+plot_summs(model2, scale = TRUE, plot.distributions = TRUE)
+export_summs(model2, scale = TRUE, error_format = "[{conf.low}, {conf.high}]", digits = 5)
+```
+```
+
