@@ -1,0 +1,110 @@
+---
+title: "finalAnalyses"
+author: "Or Duek"
+date: "6/7/2019"
+output: html_document
+---
+This is the final analysis for the VA paper. 
+All changes will be done on this one
+
+```{r loading_data,cache=FALSE}
+# load data
+library(tidyverse)
+library(jtools)
+library(survival)
+library(survminer)
+vaDat <- read_csv('/home/or/Dropbox/postdoc/Yale/va_data/MED_Drop.csv')
+
+vaDatclean <- vaDat
+# remove more than 365 psychotherapies
+vaDatclean$MHTOTALLc <- ifelse((vaDatclean$MHTOTALL > 365), (vaDatclean$MHTOTALLc = 365), (vaDatclean$MHTOTALLc = vaDatclean$MHTOTALL))
+
+# set index date
+a = '01/01/1960'
+vaDatclean$PTSDINDr = as.Date(as.character(a), format = '%d/%m/%Y') + vaDatclean$PTSDIND
+# Now take only patients who recieved medications. 
+onlyMed_dat <- subset(vaDatclean, vaDatclean$PMEDRX==1)
+# set number of days from index day to drop out
+vaDatclean$totalDays <- as.Date(as.character(vaDatclean$MHDROPD),format = '%m/%d/%Y')  - as.Date(vaDatclean$PTSDINDr,format = '%Y/%m/%d')
+head(vaDatclean)
+```
+
+
+```{r creating_vars, echo=FALSE}
+# create a few variables before stratification
+# Race
+vaDatclean$race <- dplyr::case_when(vaDatclean$BLACK==1 ~ "Black",vaDatclean$WHITE==1 ~ "White", vaDatclean$HISPANIC==1 ~ "Hispanic", vaDatclean$ASIAN ==1 ~ "Asian", TRUE ~ "Other")
+vaDatclean$race <- factor(vaDatclean$race)
+# change levels white will be first
+vaDatclean$race <- relevel(vaDatclean$race, "White")
+
+# turn age to categorical
+vaDatclean$ageCat <- cut(vaDatclean$AGE_OCT01, breaks = c(15, 25, 35, 45, 60, 90), labels = c("18-25", "26-35", "36-45", "45-60", "60+"))
+plot(vaDatclean$ageCat)
+# check comorbidity
+vaDatclean$sumComorbid <- vaDatclean$DEMENT_ALZ + vaDatclean$ALC + vaDatclean$DRUG + vaDatclean$SCHIZOPHRENIA + vaDatclean$OTHERPSYCHOSIS + vaDatclean$BIPOLAR + vaDatclean$MAJORAFFECT + vaDatclean$OTHERDEP + vaDatclean$ANXIETY + vaDatclean$ADJUSTMENT + vaDatclean$PERSONALITY + vaDatclean$BORDERLINE
+
+vaDatclean$MARRIED <- factor(vaDatclean$MARRIED)
+
+vaDatclean$FEMALE <- factor(vaDatclean$FEMALE)
+vaDatclean$VATXM <- factor(vaDatclean$VATXM) #, labels = c("Yes", "No"))
+# Creating Psychotherapy 0 - none or 1 = exist
+vaDatclean$PSYCTR <- dplyr::case_when(vaDatclean$INDPSY >1 | vaDatclean$GRPPSY >1 | vaDatclean$FAMPSY >1 ~ "yes", TRUE ~ "no")
+vaDatclean$PSYCTR <- factor(vaDatclean$PSYCTR)
+vaDatclean$PSYCTR <- relevel(vaDatclean$PSYCTR, "yes")
+
+vaDatclean$sumComorbidfactor <- cut(vaDatclean$sumComorbid, breaks = c(-1,0,1,3,15), labels = c("0","1", "2-3","3+"))
+plot(vaDatclean$sumComorbidfactor)
+
+vaDatclean$ANXfactor <- factor(vaDatclean$ANXIETY)
+vaDatclean$URBAN_RURAL <- factor(vaDatclean$URBAN_RURAL)
+vaDatclean$MAJORAFFECT <- factor(vaDatclean$MAJORAFFECT)
+
+
+vaDatclean$OEFOIF <- factor(vaDatclean$OEFOIF)
+
+vaDatclean$ADRXN_true <- case_when(vaDatclean$ADRXN > 0 ~ 1, TRUE ~0)
+vaDatclean$APSRXN_true <- case_when(vaDatclean$APSRXN >0 ~ 1, TRUE ~0)
+vaDatclean$AXSEDHPRXN_true <- case_when(vaDatclean$AXSEDHPRXN >0 ~ 1, TRUE ~0)
+vaDatclean$STIMRXN_true <- case_when(vaDatclean$STIMRXN > 0 ~ 1, TRUE ~ 0)
+vaDatclean$ACVMSRXN_true <- case_when(vaDatclean$ACVMSRXN > 0 ~ 1, TRUE ~ 0)
+vaDatclean$LIRXN_true <- case_when(vaDatclean$LIRXN > 0 ~ 1, TRUE ~ 0)
+
+vaDatclean$sumMed <- vaDatclean$LIRXN_true + vaDatclean$ACVMSRXN_true + vaDatclean$STIMRXN_true + vaDatclean$AXSEDHPRXN_true + vaDatclean$APSRXN_true + vaDatclean$ADRXN_true 
+vaDatclean$sumMedCat <- factor(case_when(vaDatclean$sumMed==1 ~ '1', vaDatclean$sumMed == 2 ~ "2", vaDatclean$sumMed >= 3 ~ "3+"))
+
+# create a censore variable who survived more than 30 days
+vaDatclean$MONTH1 <- case_when(vaDatclean$totalDays <= 30 ~ 1, TRUE ~ 0)
+
+
+```
+
+```{r time_censore_vars}
+########## Create new censore and time variables (according to discussion with Ilan) #############################
+# Build censor var for antidepressants
+# build cencor var for anxiolytics
+# build cencor var for anti psychotic
+# build total cencor var (three medd)
+# build timevar for anti depressant (last -first rx)
+# build timevar for anxiolytic (last-first rx)
+# build timevar for anti psychotic (last - first rx)
+# build total timevar (last rx - first rx between all those meds)
+# 
+
+
+##################################################################################################################
+```
+
+
+Lets take just medicated patients, before stratify to different groups of medication.
+
+```{r filter_med}
+# take just medicated patients. 
+medicatedVa_dat <- filter(vaDatclean, PMEDRX==1)
+head(medicatedVa_dat)
+# take only patients with first MH visit after index date
+medicatedVa_datFirstV <-  subset(medicatedVa_dat, !is.na(medicatedVa_dat$MHFUFRST))
+medicatedVa_datFirstV$timeTofV <- factor(case_when(medicatedVa_datFirstV$MHFUFRST<=7 ~ "7", medicatedVa_datFirstV$MHFUFRST>7 & medicatedVa_datFirstV$MHFUFRST<=30 ~ "7-30", TRUE ~ "30+"))
+
+medicatedVa_datFirstV$timeTofV <- relevel(medicatedVa_datFirstV$timeTofV, "30+" )
+```
