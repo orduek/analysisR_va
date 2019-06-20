@@ -8,17 +8,36 @@ output: html_document
 
 ```{r}
 library(DiagrammeR)
-grViz(
-  "digraph rmarkdown {
-node [shape = box, width = 2.5, fillcolor = lightCyan, style = filled]
-a [label = 'Total Medicated\n 330,721', fillcolor = Azure] 
-b [label = 'Three medications\n 318,738']
-c [label = 'Three Medications and visit\n 279,809', fillcolor = cyan]
-d [label = 'Total number of patients\n 502,036', fillcolor = white]
-a -> b [label = 'Including AD, AX and APX', fontsize = 10] 
-b-> c [label = 'Including only ones with MH visit after index day', fontsize = 10]
-d -> a
-
-  }"
-)
+library(DiagrammeRsvg)
+library(magrittr)
+library(rsvg)
+graph <-
+  grViz(
+    "digraph rmarkdown {
+  node [shape = box, width = 2.5, fillcolor = lightCyan, style = filled]
+  a [label = 'Total Medicated\n 330,772', fillcolor = Azure] 
+  b [label = 'Three medications\n 307,798']
+  c [label = 'Three Medications and visit\n 297,809', fillcolor = cyan]
+  d [label = 'Total number of patients\n 502,036', fillcolor = white]
+  e[label = 'Antidepressant\n 143,132']
+  e2[label = 'Anxiolytics\n 57,594']
+  e3[label = 'Anntipsychotics\n 28,303']
+  f[label = 'Three Medications and visit no previous Med\n 154,953']
+  a -> b [label = 'Including AD, AX and APX', fontsize = 10] 
+  b-> c [label = 'Including only ones with MH visit after index day', fontsize = 10]
+  c -> f [label = 'Including only patients without previously prescribed psychotropic medication', fontsize = 10]
+  d -> a
+  f -> e
+  f -> e2
+  f -> e3
+  
+    }"
+  )
 ```
+
+
+```{r}
+graph %>%
+    export_svg %>% charToRaw %>% rsvg_png("graph.png", width = 1080, height = 1080)
+```
+

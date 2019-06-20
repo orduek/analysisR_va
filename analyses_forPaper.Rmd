@@ -254,13 +254,6 @@ ggforest(fit.coxp30days, data = threeMeds_30days)
 summary(fit.coxp30days)
 ```
 
-```{r}
-library(pander)
-panderOptions("digits", 2)
-pander(fit.coxp30days)
-```
-
-
 
 ## Combine PCL scores with 30 days data
 ```{r pcl_charac}
@@ -301,6 +294,12 @@ model3 <- glm(censore30 ~ scale(pclR) + scale(pclA) + scale(pclN) + scale(pclDA)
 summary(model2)
 summ(model3, exp = TRUE, scale =TRUE, digits = 5)
 plot_model(model3)
+```
+
+```{r}
+plot_summs(model1,model2, model3, scale = TRUE, exp = TRUE) #, colors = "Qual1") #, 
+       #    coefs = c("Age" = "AGE_OCT01", "# Psych Sessions" = "PSYCTHR",
+        #             "Not Married" = "MARRIED", "Comorbidity Index" = "sumComorbid", "# of Medications" = "sumMed")))
 ```
 
 
