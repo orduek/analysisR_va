@@ -48,7 +48,7 @@ plot(vaDatclean$ageCat)
 vaDatclean$sumComorbid <- vaDatclean$DEMENT_ALZ + vaDatclean$ALC + vaDatclean$DRUG + vaDatclean$SCHIZOPHRENIA + vaDatclean$OTHERPSYCHOSIS + vaDatclean$BIPOLAR + vaDatclean$MAJORAFFECT + vaDatclean$OTHERDEP + vaDatclean$ANXIETY + vaDatclean$ADJUSTMENT + vaDatclean$PERSONALITY + vaDatclean$BORDERLINE
 
 vaDatclean$MARRIED <- factor(vaDatclean$MARRIED)
-vaDatclean$MARRIED <- relevel(vaDatclean$MARRIED, "1")
+vaDatclean$MARRIED <- relevel(vaDatclean$MARRIED, "1") # change reference level to married
 
 vaDatclean$FEMALE <- factor(vaDatclean$FEMALE)
 vaDatclean$VATXM <- factor(vaDatclean$VATXM) #, labels = c("Yes", "No"))
@@ -227,14 +227,14 @@ Doing a binomial regression model with censore =30 as dependent variable. AGE, n
 
 threeMeds_dat$censore30 <- case_when(threeMeds_dat$totalDaysThreeMeds>=30 ~ 0, threeMeds_dat$totalDaysThreeMeds<30 ~ 1, is.na(threeMeds_dat$totalDaysThreeMeds) ~ NA_real_)
 
-model1 <- glm(censore30 ~ AGE_OCT01 + PSYCTHR + MARRIED + sumComorbid + sumMed, data=threeMeds_dat, family = binomial)
+model1 <- glm(censore30 ~ AGE_OCT01 + PSYCTHR + MARRIED + race + sumComorbid+ sumMed, data=threeMeds_dat, family = binomial)
 summary(model1)
 model1_summ <- as.data.frame(summ(model1, exp = TRUE, scale =TRUE, digits = 5)$coeftable, optional = TRUE)  #just taking coeficient table and creating data frame to plot 
 ```
 ```{r PlotBinom}
 # plott the above
 print(plot_summs(model1, scale = TRUE, exp = TRUE, colors = "Qual1", 
-           coefs = c("Age" = "AGE_OCT01", "# Psych Sessions" = "PSYCTHR",
+           coefs = c("Age" = "AGE_OCT01", "# Psych Sessions" = "PSYCTHR", "Asian" = "raceAsian", "Black" = "raceBlack", "Hispanic" = "raceHispanic", "Other" = "raceOther",
                      "Not Married" = "MARRIED", "Comorbidity Index" = "sumComorbid", "# of Medications" = "sumMed")))
 ```
 
@@ -296,10 +296,9 @@ summ(model3, exp = TRUE, scale =TRUE, digits = 5)
 plot_model(model3)
 ```
 
-```{r}
-plot_summs(model1,model2, model3, scale = TRUE, exp = TRUE) #, colors = "Qual1") #, 
-       #    coefs = c("Age" = "AGE_OCT01", "# Psych Sessions" = "PSYCTHR",
-        #             "Not Married" = "MARRIED", "Comorbidity Index" = "sumComorbid", "# of Medications" = "sumMed")))
+```{r plot_model2_3}
+plot_summs(model2, model3, scale = TRUE, exp = TRUE, model.names = c("All year", "30 days")) #, 
+           coefs = c("Age" = "AGE_OCT01", "# Psych Sessions" = "PSYCTHR","Not Married" = "MARRIED", "Comorbidity Index" = "sumComorbid", "# of Medications" = "sumMed", "PCL-R" = '"scale(pclR)"', "PCL-A" = "scale(pclA)", "PCL-N" = "scale(pclN)", "PCL-DA" = "scale(pclDA)", "PCL-AA" = "scale(pclAA)"))
 ```
 
 
