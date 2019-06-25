@@ -1,0 +1,75 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+```{r}
+library(bootnet)
+
+```
+
+
+```{r}
+# build data set only with PCL items
+pclItems <- select(pclNoNa, starts_with("PCL"))
+```
+
+
+```{r}
+pclItems_noCluster <- select(pclItems, -pclN, -pclR, -pclDA, -pclA, -pclAA, -PCLFY, -PCLSURVEYDATE, -PCLRAWSCORE)
+results_noCluster <- estimateNetwork(pclItems_noCluster,
+default = "EBICglasso",
+corMethod = "cor_auto",
+tuning = 0.5)
+```
+
+```{r}
+# create five factor pcl scores
+# 1-5 Reexpirienceing (R)
+# 6-7 avoidance (A)
+# 8-12 emotional numbing (N)
+# 13-15 dysphoric arousal (DA)
+# 16-17 Anxios arousal (AA)
+gr1 <- list("Reexpirienceing"=c(1:5), "Avoidance"=c(6:7), "Emotional numbing"=c(8:12),"Dysphoric arousal"=c(13:15), "Anxios arousal"=c(16:17)) #PTSD symptoms categories B C D E
+plot(results_noCluster, groups = gr1)
+```
+
+```{r}
+centrality(results_noCluster)
+centralityPlot(results_noCluster, include = "all")
+```
+```{r}
+# bootstrapping to assess stability of network
+boot1 <- bootnet(results_noCluster, nCores = 8, nBoots = 1000, type = "nonparametric") 
+boot2 <- bootnet(results_noCluster, nCores = 8, nBoots = 1000, type = "case")
+```
+
+```{r}
+plot(boot2, labels = F, order = "sample" ) 
+```
+Now second network
+```{r}
+pclItems2 <- select(pclNoNa, starts_with("PCL"),  -pclN, -pclR, -pclDA, -pclA, -pclAA, -PCLFY, -PCLSURVEYDATE, -PCLRAWSCORE, sumMed, AGE_OCT01, PHQ1,PHQ2,PHQ3, PHQ4,PHQ5,PHQ6,PHQ7,PHQ8,PHQ9, sumComorbid)
+```
+
+```{r}
+results_Net2 <- estimateNetwork(pclItems2,
+default = "EBICglasso",
+corMethod = "cor_auto",
+tuning = 0.5)
+```
+```{r}
+# get location of PHQ-9 questions
+grep("PHQ", colnames(pclItems2))
+gr2 <- list("Reexpirienceing"=c(1:5), "Avoidance"=c(6:7), "Emotional numbing"=c(8:12),"Dysphoric arousal"=c(13:15), "Anxios arousal"=c(16:17), "PHQ9-Depression"=c(20:28)) #PTSD symptoms categories B C D E
+plot(results_Net2, groups = gr2)
+```
+
+```{r}
+centralityPlot(results_Net2, include = "all")
+```
+## Maybe we should compare the netwrok of medicated vs. non medication patients
+```{r}
+
+```
+

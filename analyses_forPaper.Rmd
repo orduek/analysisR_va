@@ -197,6 +197,7 @@ threeMeds_dat$lastDateMed <- pmax(as.Date(threeMeds_dat$ADLSTRX,format = '%m/%d/
 # new var of total days
 threeMeds_dat$totalDaysThreeMeds <- as.Date(threeMeds_dat$lastDateMed, format = '%m/%d/%Y') - as.Date(threeMeds_dat$firstDateMed, format = '%m/%d/%Y')
 hist(as.numeric(threeMeds_dat$totalDaysThreeMeds))
+ggplot(threeMeds_dat, aes(x=totalDaysThreeMeds)) + geom_histogram(fill = "Orange") + theme_minimal() + xlab("Number of days with medication") + ylab("Number of Patients") + geom_line(aes(x=totalDaysThreeMeds,y=cumsum(totalDaysThreeMeds)), col="red", lwd=1)
 # build total cencor var (three med)
 threeMeds_dat$threeMedsCensore <- case_when(threeMeds_dat$totalDaysThreeMeds>=180 ~ 0, threeMeds_dat$totalDaysThreeMeds<180 ~ 1, is.na(threeMeds_dat$totalDaysThreeMeds) ~ NA_real_, TRUE ~ 3)
 table(threeMeds_dat$threeMedsCensore)

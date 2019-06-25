@@ -190,7 +190,7 @@ ggforest(fit.coxphPCL, data = pclNoNa)
 ```{r binomialReg}
 # Binomial regression
 
-model1 <- glm(MONTH6 ~ scale(pclR) + scale(pclA) + scale(pclN) + scale(pclDA) + scale(pclAA) + AGE_OCT01 + PSYCTR + sumComorbid + sumMed, data=pclNoNa)
+model1 <- glm(MONTH6 ~ scale(pclR) + scale(pclA) + scale(pclN) + scale(pclDA) + scale(pclAA) + AGE_OCT01 + PSYCTR + sumComorbid + sumMed, data=pclnoNa_new, family = binomial)
 summary(model1)
 ```
 
@@ -202,4 +202,16 @@ library(ggstance)
 plot_summs(model1, scale = TRUE, plot.distributions = TRUE)
 export_summs(model1, scale = TRUE, error_format = "[{conf.low}, {conf.high}]", digits = 5)
 ```
+
+## check prediction of binomial regression
+
+```{r}
+pclnoNa_new <- subset(pclNoNa, !is.na(pclNoNa$pclAA) & !is.na(pclNoNa$pclA) & !is.na(pclNoNa$pclR) & !is.na(pclNoNa$pclN) & !is.na(pclNoNa$pclDA) & !is.na(pclNoNa$PSYCTR) & !is.na(pclNoNa$AGE_OCT01) & !is.na(pclNoNa$sumComorbid) & !is.na(pclNoNa$sumMed))
+glm.probs = predict(model1, type = "response", na.action = rm.na)
+glm.pred = ifelse(glm.probs > 0.95, "0", "1")
+table(glm.pred, pclnoNa_new$MONTH6)
+
+mean(glm.pred == pclnoNa_new$MONTH6)
+```
+
 
