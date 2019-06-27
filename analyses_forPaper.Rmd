@@ -133,13 +133,15 @@ table(medicatedVa_datFirstV$antiPCensore)
 
 
 ## Now we go medication by medication:
-First -- Anti depression
+### First -- Anti depression
 
 ```{r antiDP_analysis, echo=FALSE}
 # now we clean data
 # take only anti depressant without any medication before index day
 antiDP_dat <- dplyr::filter(medicatedVa_datFirstV, !is.na(ADRXN) & is.na(PREADRX) & is.na(PREAPRX) & is.na(PREAXRX) & is.na(PRESTIRX) & is.na(PREACRX) & is.na(PRELIRX) & is.na(PREOPRX) & is.na(PREPRZRX)) 
 head(antiDP_dat)
+summary(antiDP_dat$ADDAY)
+sd(antiDP_dat$ADDAY)
 # how many dropout within 180 days
 table(antiDP_dat$antiDPCensore)
 ## survival model
@@ -156,6 +158,8 @@ summary(fit.coxpDP)
 # take only anxiolytics
 antiANX_dat <- dplyr::filter(medicatedVa_datFirstV, !is.na(AXSEDHPRXN) & is.na(PREADRX) & is.na(PREAPRX) & is.na(PREAXRX) & is.na(PRESTIRX) & is.na(PREACRX) & is.na(PRELIRX) & is.na(PREOPRX) & is.na(PREPRZRX)) 
 head(antiANX_dat)
+summary(antiDP_dat$AXDAY)
+sd(antiDP_dat$AXDAY, na.rm = TRUE)
 # how many dropout at 180 days
 table(antiANX_dat$antiAXCensore)
 ## survival model
@@ -172,6 +176,9 @@ summary(fit.coxpANX)
 antiAPX_dat <- dplyr::filter(medicatedVa_datFirstV, !is.na(APSRXN) & is.na(PREADRX) & is.na(PREAPRX) & is.na(PREAXRX) & is.na(PRESTIRX) & is.na(PREACRX) & is.na(PRELIRX) & is.na(PREOPRX) & is.na(PREPRZRX)) 
 # how many drop out at 180 days
 table(antiAPX_dat$antiPCensore)
+## Check mean and std
+summary(antiDP_dat$APSDAY)
+sd(antiDP_dat$APSDAY, na.rm = TRUE)
 ## survival model
 surv_antiAP <- Surv(time = antiAPX_dat$APSDAY, event = antiAPX_dat$antiPCensore)  
 summary(surv_antiAP)

@@ -2,10 +2,13 @@
 title: "R Notebook"
 output: html_notebook
 ---
-
+In this script I try to do network analysis on symptoms of PTSD and PHQ (depression) in the VA database.
+This is based on these papers:
+https://psycnet.apa.org/record/2018-13501-001?doi=1
+https://www.sciencedirect.com/science/article/pii/S0887618516302419?via%3Dihub#upi0010
+ 
 ```{r}
 library(bootnet)
-
 ```
 
 
@@ -38,6 +41,7 @@ plot(results_noCluster, groups = gr1)
 centrality(results_noCluster)
 centralityPlot(results_noCluster, include = "all")
 ```
+## When analyzing only PCL network the 10th item (Feeling distant or cut off from other people) is the most central. 
 ```{r}
 # bootstrapping to assess stability of network
 boot1 <- bootnet(results_noCluster, nCores = 8, nBoots = 1000, type = "nonparametric") 
@@ -49,7 +53,7 @@ plot(boot2, labels = F, order = "sample" )
 ```
 Now second network
 ```{r}
-pclItems2 <- select(pclNoNa, starts_with("PCL"),  -pclN, -pclR, -pclDA, -pclA, -pclAA, -PCLFY, -PCLSURVEYDATE, -PCLRAWSCORE, sumMed, AGE_OCT01, PHQ1,PHQ2,PHQ3, PHQ4,PHQ5,PHQ6,PHQ7,PHQ8,PHQ9, sumComorbid)
+pclItems2 <- select(pclNoNa, starts_with("PCL"),  -pclN, -pclR, -pclDA, -pclA, -pclAA, -PCLFY, -PCLSURVEYDATE, -PCLRAWSCORE, PHQ1,PHQ2,PHQ3, PHQ4,PHQ5,PHQ6,PHQ7,PHQ8,PHQ9)
 ```
 
 ```{r}
@@ -61,8 +65,8 @@ tuning = 0.5)
 ```{r}
 # get location of PHQ-9 questions
 grep("PHQ", colnames(pclItems2))
-gr2 <- list("Reexpirienceing"=c(1:5), "Avoidance"=c(6:7), "Emotional numbing"=c(8:12),"Dysphoric arousal"=c(13:15), "Anxios arousal"=c(16:17), "PHQ9-Depression"=c(20:28)) #PTSD symptoms categories B C D E
-plot(results_Net2, groups = gr2)
+gr2 <- list("Reexpirienceing"=c(1:5), "Avoidance"=c(6:7), "Emotional numbing"=c(8:12),"Dysphoric arousal"=c(13:15), "Anxios arousal"=c(16:17), "PHQ9-Depression"=c(18:26)) #PTSD symptoms categories B C D E
+plot(results_Net2, groups = gr2, cut=0, maximum=.5, minimum=.03)
 ```
 
 ```{r}
@@ -70,6 +74,55 @@ centralityPlot(results_Net2, include = "all")
 ```
 ## Maybe we should compare the netwrok of medicated vs. non medication patients
 ```{r}
-
+noMed_dat <- subset(vaDatclean, vaDatclean$PMEDRX==0)
+pclNoMed <- filter(noMed_dat, !is.na(BPCLTOT))
+pclNoMed_Network <- select(pclNoMed, starts_with("PCL"), -PCLFY, -PCLSURVEYDATE, -PCLRAWSCORE, PHQ1,PHQ2,PHQ3, PHQ4,PHQ5,PHQ6,PHQ7,PHQ8,PHQ9)
+```
+```{r}
+results_NoMed <- estimateNetwork(pclNoMed_Network,
+default = "EBICglasso",
+corMethod = "cor_auto",
+tuning = 0.5)
 ```
 
+```{r}
+# get location of PHQ-9 questions
+grep("PHQ", colnames(pclNoMed_Network))
+grep("PCL", colnames(pclNoMed_Network))
+gr3 <- list("Reexpirienceing"=c(1:5), "Avoidance"=c(6:7), "Emotional numbing"=c(8:12),"Dysphoric arousal"=c(13:15), "Anxios arousal"=c(16:17), "PHQ9-Depression"=c(18:26)) #PTSD symptoms categories B C D E
+plot(results_NoMed, groups = gr3,  cut=0, maximum=.5, minimum=.03)
+```
+```{r}
+centralityPlot(results_NoMed, include = "all")
+```
+## In both graphs seems like sleep disturbances plays a crucial role in the network. 
+### We also see the 2-factor model of depression (somatic and non somatic symptoms) - worth reporting also in publication. 
+
+Lets compare the two netwroks by substracting one from the other and see if there is something else
+
+```{r netComparison}
+# building the matrices
+data_ptsdMed<-cor_auto(pclItems2) #only ptsd symptoms
+data_ptsdNoMed<-cor_auto(pclNoMed_Network) #data including covariates
+# run EBIC GLASSO
+model1Meds <-EBICglasso(data_ptsdMed, n = nrow(pclItems2))
+model2NoMeds <-EBICglasso(data_ptsdNoMed, n = nrow(pclNoMed_Network))
+
+delta <- model1Meds - model2NoMeds # comparing the two networks
+
+max(delta)
+mean(abs(delta[upper.tri(delta,diag=FALSE)]))
+
+colnames(delta)<-rownames(delta)<-c(1:26)
+
+L<-averageLayout(model1Meds) # use same layout as Figure 1
+#pdf("Fig4.pdf", width=9, height=7)
+# name for labeling
+names = c("PCL1","PCL2","PCL3","PCL4","PCL5","PCL6","PCL7","PCL8","PCL9","PCL10","PCL11","PCL12","PCL13","PCL14","PCL15","PCL16","PCL17","PHQ1","PHQ2","PHQ3","PHQ4","PHQ5","PHQ6","PHQ7","PHQ8","PHQ9")
+qgraph(delta, labels = names, layout=L, vsize=6, cut=0, maximum=.5, 
+       border.width=1.5, border.color="black", minimum=.03, 
+       groups=gr2,legend.cex=.4)
+cor(as.vector(model2NoMeds),as.vector(model1Meds), method="spearman") #0.96
+```
+## From this comparison we can see that there is very small, if any, difference between the two models (with medications or without)
+### The correlation between the two graphs (with or without medications) is 0.96 - which also suggests that there is negligble difference bwteen the two
