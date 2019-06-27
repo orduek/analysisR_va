@@ -54,12 +54,14 @@ plot(boot2, labels = F, order = "sample" )
 Now second network
 ```{r}
 pclItems2 <- select(pclNoNa, starts_with("PCL"),  -pclN, -pclR, -pclDA, -pclA, -pclAA, -PCLFY, -PCLSURVEYDATE, -PCLRAWSCORE, PHQ1,PHQ2,PHQ3, PHQ4,PHQ5,PHQ6,PHQ7,PHQ8,PHQ9)
+pclItems2 <- na.omit(pclItems2) # removes any NAs
 ```
 
 ```{r}
 results_Net2 <- estimateNetwork(pclItems2,
 default = "EBICglasso",
 corMethod = "cor_auto",
+threshold = TRUE,
 tuning = 0.5)
 ```
 ```{r}
@@ -77,11 +79,13 @@ centralityPlot(results_Net2, include = "all")
 noMed_dat <- subset(vaDatclean, vaDatclean$PMEDRX==0)
 pclNoMed <- filter(noMed_dat, !is.na(BPCLTOT))
 pclNoMed_Network <- select(pclNoMed, starts_with("PCL"), -PCLFY, -PCLSURVEYDATE, -PCLRAWSCORE, PHQ1,PHQ2,PHQ3, PHQ4,PHQ5,PHQ6,PHQ7,PHQ8,PHQ9)
+pclNoMed_Network <- na.omit(pclNoMed_Network) # remove any NAs
 ```
 ```{r}
 results_NoMed <- estimateNetwork(pclNoMed_Network,
 default = "EBICglasso",
 corMethod = "cor_auto",
+threshold = TRUE,
 tuning = 0.5)
 ```
 
@@ -94,6 +98,7 @@ plot(results_NoMed, groups = gr3,  cut=0, maximum=.5, minimum=.03)
 ```
 ```{r}
 centralityPlot(results_NoMed, include = "all")
+centralityPlot(list(Nomed = results_NoMed,WithMed = results_Net2), include = c("Betweenness", "Strength", "Closeness"), decreasing = TRUE) + theme_bw() 
 ```
 ## In both graphs seems like sleep disturbances plays a crucial role in the network. 
 ### We also see the 2-factor model of depression (somatic and non somatic symptoms) - worth reporting also in publication. 
@@ -121,8 +126,39 @@ L<-averageLayout(model1Meds) # use same layout as Figure 1
 names = c("PCL1","PCL2","PCL3","PCL4","PCL5","PCL6","PCL7","PCL8","PCL9","PCL10","PCL11","PCL12","PCL13","PCL14","PCL15","PCL16","PCL17","PHQ1","PHQ2","PHQ3","PHQ4","PHQ5","PHQ6","PHQ7","PHQ8","PHQ9")
 qgraph(delta, labels = names, layout=L, vsize=6, cut=0, maximum=.5, 
        border.width=1.5, border.color="black", minimum=.03, 
-       groups=gr2,legend.cex=.4)
+       groups=gr3,legend.cex=.4, nodeNames = names)
 cor(as.vector(model2NoMeds),as.vector(model1Meds), method="spearman") #0.96
 ```
 ## From this comparison we can see that there is very small, if any, difference between the two models (with medications or without)
 ### The correlation between the two graphs (with or without medications) is 0.96 - which also suggests that there is negligble difference bwteen the two
+### The maximum (highest) correlation in these delta graph (the difference between the two other graphs) is 0.036
+
+Now we can also compare the network with and without PHQ
+```{r dep_yesNo}
+modelDep <- model1Meds[-c(18:26), -c(18:26)] # creates the network matrix of depression but omitting the actual depression variables
+
+data_ptsd<-cor_auto(pclItems_noCluster) #only ptsd symptoms
+
+modelNoDep <-EBICglasso(data_ptsd, n = nrow(pclItems_noCluster))
+
+deltaDep <- modelDep - modelNoDep
+max(deltaDep)
+mean(abs(deltaDep[upper.tri(deltaDep,diag=FALSE)]))
+
+cor(as.vector(modelDep),as.vector(modelNoDep), method="spearman") #0.99
+```
+```{r}
+#Compare using NTC
+set.seed(1337)
+pclNoMed_na <- na.omit(pclNoMed_Network)
+pclItem_na <- na.omit(pclItems2)
+compare_12 <- NCT(pclItem_na,pclNoMed_na, it=5000, binary.data=FALSE, test.edges=TRUE, edges='all', progressbar=TRUE)
+```
+
+```{r}
+compare_12$nwinv.pval
+sum(compare_12$einv.pvals$"p-value" < 0.05) # how many edges are less than p=0.05 
+
+compare_12$glstrinv.pval # strength of network
+```
+
