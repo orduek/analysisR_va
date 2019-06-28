@@ -33,8 +33,10 @@ tuning = 0.5)
 # 8-12 emotional numbing (N)
 # 13-15 dysphoric arousal (DA)
 # 16-17 Anxios arousal (AA)
-gr1 <- list("Reexpirienceing"=c(1:5), "Avoidance"=c(6:7), "Emotional numbing"=c(8:12),"Dysphoric arousal"=c(13:15), "Anxios arousal"=c(16:17)) #PTSD symptoms categories B C D E
+gr1 <- list("Reexpirienceing"=c(1:5), "Avoidance"=c(6:7), "Emotional numbing"=c(8:12),"Dysphoric arousal"=c(13:15), "Anxios arousal"=c(16:17)) #PTSD Clusters
+gr_likeDSM <- list("Intrusion"=c(1:5), "Avoidance"=c(6:12), "Arousal"=c(13:17)) #PTSD symptoms categories B C D
 plot(results_noCluster, groups = gr1)
+plot(results_noCluster, groups = gr_likeDSM)
 ```
 
 ```{r}
@@ -98,7 +100,7 @@ plot(results_NoMed, groups = gr3,  cut=0, maximum=.5, minimum=.03)
 ```
 ```{r}
 centralityPlot(results_NoMed, include = "all")
-centralityPlot(list(Nomed = results_NoMed,WithMed = results_Net2), include = c("Betweenness", "Strength", "Closeness"), decreasing = TRUE) + theme_bw() 
+centralityPlot(list("Without medication" = results_NoMed, "With Medication" = results_Net2), include = c("Betweenness", "Strength", "Closeness"), decreasing = TRUE) + theme_minimal() 
 ```
 ## In both graphs seems like sleep disturbances plays a crucial role in the network. 
 ### We also see the 2-factor model of depression (somatic and non somatic symptoms) - worth reporting also in publication. 
@@ -161,4 +163,11 @@ sum(compare_12$einv.pvals$"p-value" < 0.05) # how many edges are less than p=0.0
 
 compare_12$glstrinv.pval # strength of network
 ```
+## Lets see cluters
+```{r}
+library(EGAnet)
+ega<-EGA(pclItems2, plot.EGA = TRUE, steps = 4, nfact = 7)
+ega<-EGA(pclItems_noCluster, plot.EGA = TRUE, steps = 4, nfact = 5)
+```
+
 
