@@ -81,7 +81,10 @@ vaDatclean$sumMedCat <- factor(case_when(vaDatclean$sumMed==1 ~ '1', vaDatclean$
 # create a censore variable who survived more than 30 days
 vaDatclean$MONTH1 <- case_when(vaDatclean$totalDays <= 30 ~ 1, TRUE ~ 0)
 
-
+# create comorbidity variable with MAJORAFFECT, OTHERDEP, ANXIETY, SCHIZOPHRENIA, OTHERPSYCHOSIS
+vaDatclean$threeComb <- case_when(vaDatclean$MAJORAFFECT==1 ~ "Dep", vaDatclean$OTHERDEP ==1 ~ 'Dep', vaDatclean$ANXIETY==1 ~ 'Anx', vaDatclean$SCHIZOPHRENIA==1 ~ 'Psychosis', vaDatclean$OTHERPSYCHOSIS==1 ~ 'Psychosis', TRUE ~ 'noComb')
+table(vaDatclean$threeComb)
+vaDatclean$threeComb <- relevel(factor(vaDatclean$threeComb), 'noComb')
 ```
 
 
@@ -114,7 +117,7 @@ table(medicatedVa_datFirstV$antiAXCensore)
 # build cencor var for anti psychotic
 medicatedVa_datFirstV$antiPCensore <- case_when(medicatedVa_datFirstV$APSDAY>=180 ~ 0, medicatedVa_datFirstV$APSDAY<180 ~ 1, is.na(medicatedVa_datFirstV$APSDAY) ~ NA_real_, TRUE ~ 3)
 table(medicatedVa_datFirstV$antiPCensore)
-
+table(medicatedVa_datFirstV$threeComb)
 # build timevar for anti depressant (last -first rx)
 
 # build timevar for anxiolytic (last-first rx)
@@ -130,10 +133,11 @@ table(medicatedVa_datFirstV$antiPCensore)
 ##################################################################################################################
 ```
 
-
+### When looking at total PTSD population, 224060 are without comorbidity and 234,673 are with depression
+### When looking at medicated patients 
 
 ## Now we go medication by medication:
-### First -- Anti depression
+### First -- Anti depression 82,288 are without comorbidity and 194,145 with dep. 
 
 ```{r antiDP_analysis, echo=FALSE}
 # now we clean data
@@ -144,11 +148,12 @@ summary(antiDP_dat$ADDAY)
 sd(antiDP_dat$ADDAY)
 # how many dropout within 180 days
 table(antiDP_dat$antiDPCensore)
+table(antiDP_dat$threeComb)
 ## survival model
 surv_antiDP <- Surv(time = antiDP_dat$ADDAY, event = antiDP_dat$antiDPCensore)  
 summary(surv_antiDP)
 # now cox analysis
-fit.coxpDP <- coxph(surv_antiDP ~ PSYCTR + MARRIED + OEFOIF + race + sumComorbid + sumMed, 
+fit.coxpDP <- coxph(surv_antiDP ~ PSYCTR + MARRIED + OEFOIF + race + threeComb + FEMALE +sumComorbid + sumMed, 
                    data = antiDP_dat)
 ggforest(fit.coxpDP, data = antiDP_dat)
 summary(fit.coxpDP)
@@ -166,7 +171,7 @@ table(antiANX_dat$antiAXCensore)
 surv_antiANX <- Surv(time = antiANX_dat$AXDAY, event = antiANX_dat$antiAXCensore)  
 summary(surv_antiANX)
 # now cox analysis
-fit.coxpANX <- coxph(surv_antiANX ~ PSYCTR + MARRIED + OEFOIF + race + sumComorbid + sumMed, 
+fit.coxpANX <- coxph(surv_antiANX ~ PSYCTR + MARRIED + OEFOIF + race +threeComb + FEMALE+ sumComorbid + sumMed, 
                    data = antiANX_dat)
 ggforest(fit.coxpANX, data = antiANX_dat)
 summary(fit.coxpANX)
@@ -183,7 +188,7 @@ sd(antiDP_dat$APSDAY, na.rm = TRUE)
 surv_antiAP <- Surv(time = antiAPX_dat$APSDAY, event = antiAPX_dat$antiPCensore)  
 summary(surv_antiAP)
 # now cox analysis
-fit.coxpAP <- coxph(surv_antiAP ~ PSYCTR + MARRIED + OEFOIF + race + sumComorbid + sumMed, 
+fit.coxpAP <- coxph(surv_antiAP ~ PSYCTR + MARRIED + OEFOIF + race +threeComb + FEMALE+ sumComorbid + sumMed, 
                    data = antiAPX_dat)
 ggforest(fit.coxpAP, data = antiAPX_dat)
 summary(fit.coxpAP)
@@ -213,7 +218,7 @@ table(threeMeds_dat$threeMedsCensore)
 surv_ThreeMeds <- Surv(time = threeMeds_dat$totalDaysThreeMeds, event = threeMeds_dat$threeMedsCensore)  
 summary(surv_ThreeMeds)
 # now cox analysis
-fit.coxpThreeMeds <- coxph(surv_ThreeMeds ~ PSYCTR + MARRIED + OEFOIF + race + sumComorbid + sumMed, 
+fit.coxpThreeMeds <- coxph(surv_ThreeMeds ~ PSYCTR + MARRIED + OEFOIF + race + threeComb + FEMALE + sumComorbid + sumMed, 
                    data = threeMeds_dat)
 ggforest(fit.coxpThreeMeds, data = threeMeds_dat)
 summary(fit.coxpThreeMeds)
