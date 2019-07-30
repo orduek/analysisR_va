@@ -9,17 +9,29 @@ https://www.sciencedirect.com/science/article/pii/S0887618516302419?via%3Dihub#u
  
 ```{r}
 library(bootnet)
+require(tidyverse)
 ```
 
+```{r}
+# Addind time difference between PCL and PHQ
+pclNetwork <- pclNoNa
+a = '01/01/1960'
+
+
+pclNetwork$PCL_PHQdiff <- pclNetwork$PCLSURVEYDATE - pclNetwork$PHQSURVEYDATE
+pclNetwork <- filter(pclNetwork, PCL_PHQdiff <= 14 & PCL_PHQdiff >= -14)
+#pclNetwork$PCL_PHQdiff <- (as.Date(as.character(a), format = '%d/%m/%Y') + pclNetwork$PCLSURVEYDATE) - (as.Date(as.character(a), format = '%d/%m/%Y') + pclNetwork$PHQSURVEYDATE)
+```
 
 ```{r}
 # build data set only with PCL items
-pclItems <- select(pclNoNa, starts_with("PCL"))
+pclItems <- select(pclNetwork, starts_with("PCL"))
 ```
 
 
 ```{r}
-pclItems_noCluster <- select(pclItems, -pclN, -pclR, -pclDA, -pclA, -pclAA, -PCLFY, -PCLSURVEYDATE, -PCLRAWSCORE)
+pclItems_noCluster <- select(pclItems, -pclN, -pclR, -pclDA, -pclA, -pclAA, -PCLFY, -PCLSURVEYDATE, -PCLRAWSCORE, -PCL_PHQdiff)
+pclItems_noCluster <- na.omit(pclItems_noCluster)
 results_noCluster <- estimateNetwork(pclItems_noCluster,
 default = "EBICglasso",
 corMethod = "cor_auto",
@@ -40,22 +52,23 @@ plot(results_noCluster, groups = gr_likeDSM)
 ```
 
 ```{r}
+library(qgraph)
 centrality(results_noCluster)
 centralityPlot(results_noCluster, include = "all")
 ```
 ## When analyzing only PCL network the 10th item (Feeling distant or cut off from other people) is the most central. 
 ```{r}
 # bootstrapping to assess stability of network
-boot1 <- bootnet(results_noCluster, nCores = 8, nBoots = 1000, type = "nonparametric") 
-boot2 <- bootnet(results_noCluster, nCores = 8, nBoots = 1000, type = "case")
+#boot1 <- bootnet(results_noCluster, nCores = 8, nBoots = 1000, type = "nonparametric") 
+#boot2 <- bootnet(results_noCluster, nCores = 8, nBoots = 1000, type = "case")
 ```
 
 ```{r}
-plot(boot2, labels = F, order = "sample" ) 
+#plot(boot2, labels = F, order = "sample" ) 
 ```
 Now second network
 ```{r}
-pclItems2 <- select(pclNoNa, starts_with("PCL"),  -pclN, -pclR, -pclDA, -pclA, -pclAA, -PCLFY, -PCLSURVEYDATE, -PCLRAWSCORE, PHQ1,PHQ2,PHQ3, PHQ4,PHQ5,PHQ6,PHQ7,PHQ8,PHQ9)
+pclItems2 <- select(pclNetwork, starts_with("PCL"),  -pclN, -pclR, -pclDA, -pclA, -pclAA, -PCLFY, -PCLSURVEYDATE, -PCLRAWSCORE, PHQ1,PHQ2,PHQ3, PHQ4,PHQ5,PHQ6,PHQ7,PHQ8,PHQ9,-PCL_PHQdiff)
 pclItems2 <- na.omit(pclItems2) # removes any NAs
 ```
 
@@ -69,7 +82,7 @@ tuning = 0.5)
 ```{r}
 # get location of PHQ-9 questions
 grep("PHQ", colnames(pclItems2))
-gr2 <- list("Reexpirienceing"=c(1:5), "Avoidance"=c(6:7), "Emotional numbing"=c(8:12),"Dysphoric arousal"=c(13:15), "Anxios arousal"=c(16:17), "PHQ9-Depression"=c(18:26)) #PTSD symptoms categories B C D E
+gr2 <- list("Reexpirienceing"=c(1:5), "Avoidance"=c(6:7), "Emotional numbing"=c(8:12),"Dysphoric arousal"=c(13:15), "Anxios arousal"=c(16:17), "PHQ9-Depression"=c(18:26)) #PTSD symptoms categories B C D E  
 plot(results_Net2, groups = gr2, cut=0, maximum=.5, minimum=.03)
 ```
 
@@ -80,7 +93,11 @@ centralityPlot(results_Net2, include = "all")
 ```{r}
 noMed_dat <- subset(vaDatclean, vaDatclean$PMEDRX==0)
 pclNoMed <- filter(noMed_dat, !is.na(BPCLTOT))
-pclNoMed_Network <- select(pclNoMed, starts_with("PCL"), -PCLFY, -PCLSURVEYDATE, -PCLRAWSCORE, PHQ1,PHQ2,PHQ3, PHQ4,PHQ5,PHQ6,PHQ7,PHQ8,PHQ9)
+# remove patients with more than 14 days apart PHQ and PCL
+pclNoMed$PCL_PHQdiff <- pclNoMed$PCLSURVEYDATE - pclNoMed$PHQSURVEYDATE
+pclNoMed <- filter(pclNoMed, PCL_PHQdiff <= 14 & PCL_PHQdiff >= -14)
+
+pclNoMed_Network <- select(pclNoMed, starts_with("PCL"), -PCLFY, -PCLSURVEYDATE, -PCLRAWSCORE, PHQ1,PHQ2,PHQ3, PHQ4,PHQ5,PHQ6,PHQ7,PHQ8,PHQ9, -PCL_PHQdiff)
 pclNoMed_Network <- na.omit(pclNoMed_Network) # remove any NAs
 ```
 ```{r}
@@ -151,6 +168,7 @@ cor(as.vector(modelDep),as.vector(modelNoDep), method="spearman") #0.99
 ```
 ```{r}
 #Compare using NTC
+require(NetworkComparisonTest)
 set.seed(1337)
 pclNoMed_na <- na.omit(pclNoMed_Network)
 pclItem_na <- na.omit(pclItems2)
@@ -165,9 +183,12 @@ compare_12$glstrinv.pval # strength of network
 ```
 ## Lets see cluters
 ```{r}
+# Here we use a method that was described in the following link to resulve cluster issues in graph theory.
+# https://journals.plos.org/plosone/article?id=10.1371/journal.pone.0174035
+# 
 library(EGAnet)
-ega<-EGA(pclItems2, plot.EGA = TRUE, steps = 4, nfact = 7)
-ega<-EGA(pclItems_noCluster, plot.EGA = TRUE, steps = 4, nfact = 5)
+ega<-EGA(pclItems_noCluster, plot.EGA = TRUE, steps = 4)
+ega<-EGA(pclItems_noCluster, plot.EGA = TRUE, steps = 2) # here they find the four clusters like DSM
 ```
 
-
+## Running 2 steps EGA scales to 4 factors. Running 4 steps scales to three factors. 

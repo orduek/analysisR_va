@@ -85,6 +85,9 @@ vaDatclean$MONTH1 <- case_when(vaDatclean$totalDays <= 30 ~ 1, TRUE ~ 0)
 vaDatclean$threeComb <- case_when(vaDatclean$MAJORAFFECT==1 ~ "Dep", vaDatclean$OTHERDEP ==1 ~ 'Dep', vaDatclean$ANXIETY==1 ~ 'Anx', vaDatclean$SCHIZOPHRENIA==1 ~ 'Psychosis', vaDatclean$OTHERPSYCHOSIS==1 ~ 'Psychosis', TRUE ~ 'noComb')
 table(vaDatclean$threeComb)
 vaDatclean$threeComb <- relevel(factor(vaDatclean$threeComb), 'noComb')
+
+
+
 ```
 
 
