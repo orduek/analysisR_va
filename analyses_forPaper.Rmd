@@ -243,7 +243,7 @@ Doing a binomial regression model with censore =30 as dependent variable. AGE, n
 
 threeMeds_dat$censore30 <- case_when(threeMeds_dat$totalDaysThreeMeds>=30 ~ 0, threeMeds_dat$totalDaysThreeMeds<30 ~ 1, is.na(threeMeds_dat$totalDaysThreeMeds) ~ NA_real_)
 
-model1 <- glm(censore30 ~ AGE_OCT01 + PSYCTHR + MARRIED + race + sumComorbid+ sumMed, data=threeMeds_dat, family = binomial)
+model1 <- glm(censore30 ~ AGE_OCT01 + PSYCTHR + MARRIED + race + sumComorbid+ sumMed + threeComb, data=threeMeds_dat, family = binomial)
 summary(model1)
 model1_summ <- as.data.frame(summ(model1, exp = TRUE, scale =TRUE, digits = 5)$coeftable, optional = TRUE)  #just taking coeficient table and creating data frame to plot 
 ```
@@ -251,7 +251,7 @@ model1_summ <- as.data.frame(summ(model1, exp = TRUE, scale =TRUE, digits = 5)$c
 # plott the above
 print(plot_summs(model1, scale = TRUE, exp = TRUE, colors = "Qual1", 
            coefs = c("Age" = "AGE_OCT01", "# Psych Sessions" = "PSYCTHR", "Asian" = "raceAsian", "Black" = "raceBlack", "Hispanic" = "raceHispanic", "Other" = "raceOther",
-                     "Not Married" = "MARRIED", "Comorbidity Index" = "sumComorbid", "# of Medications" = "sumMed")))
+                     "Not Married" = "MARRIED", "Comorbidity Index" = "sumComorbid", "# of Medications" = "sumMed", "AnxMed" = "threeCombAnx", "DepMed" = "threeCombDep", "PsycMed" = "threeCombPsychosis")))
 ```
 
 

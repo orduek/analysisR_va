@@ -19,7 +19,7 @@ a = '01/01/1960'
 
 
 pclNetwork$PCL_PHQdiff <- pclNetwork$PCLSURVEYDATE - pclNetwork$PHQSURVEYDATE
-pclNetwork <- filter(pclNetwork, PCL_PHQdiff <= 14 & PCL_PHQdiff >= -14)
+pclNetwork <- filter(pclNetwork, PCL_PHQdiff <= 14 & PCL_PHQdiff >= -14) # removing patients with more than 14 apart between PHQ9 and PCL-M
 #pclNetwork$PCL_PHQdiff <- (as.Date(as.character(a), format = '%d/%m/%Y') + pclNetwork$PCLSURVEYDATE) - (as.Date(as.character(a), format = '%d/%m/%Y') + pclNetwork$PHQSURVEYDATE)
 ```
 
@@ -47,7 +47,7 @@ tuning = 0.5)
 # 16-17 Anxios arousal (AA)
 gr1 <- list("Reexpirienceing"=c(1:5), "Avoidance"=c(6:7), "Emotional numbing"=c(8:12),"Dysphoric arousal"=c(13:15), "Anxios arousal"=c(16:17)) #PTSD Clusters
 gr_likeDSM <- list("Intrusion"=c(1:5), "Avoidance"=c(6:12), "Arousal"=c(13:17)) #PTSD symptoms categories B C D
-plot(results_noCluster, groups = gr1)
+plot(results_noCluster, groups = gr1, theme="colorblind")
 plot(results_noCluster, groups = gr_likeDSM)
 ```
 
@@ -64,7 +64,7 @@ centralityPlot(results_noCluster, include = "all")
 ```
 
 ```{r}
-#plot(boot2, labels = F, order = "sample" ) 
+plot(boot2, labels = F, order = "sample")  + theme_minimal()
 ```
 Now second network
 ```{r}
@@ -117,7 +117,7 @@ plot(results_NoMed, groups = gr3,  cut=0, maximum=.5, minimum=.03)
 ```
 ```{r}
 centralityPlot(results_NoMed, include = "all")
-centralityPlot(list("Without medication" = results_NoMed, "With Medication" = results_Net2), include = c("Betweenness", "Strength", "Closeness"), decreasing = TRUE) + theme_minimal() 
+centralityPlot(list("Without medication" = results_NoMed, "With Medication" = results_Net2), include = c("Betweenness", "Strength", "Closeness", "ExpectedInfluence"), decreasing = TRUE) + theme_minimal() 
 ```
 ## In both graphs seems like sleep disturbances plays a crucial role in the network. 
 ### We also see the 2-factor model of depression (somatic and non somatic symptoms) - worth reporting also in publication. 
@@ -132,6 +132,18 @@ data_ptsdNoMed<-cor_auto(pclNoMed_Network) #data including covariates
 model1Meds <-EBICglasso(data_ptsdMed, n = nrow(pclItems2))
 model2NoMeds <-EBICglasso(data_ptsdNoMed, n = nrow(pclNoMed_Network))
 
+min(model1Meds)
+# graph medicated patients
+qgraph(model1Meds, layout="spring", cut=0, maximum=.6, 
+       minimum=.03, theme = "colorblind",
+       groups=gr3,legend.cex=.4)
+# graph unmedicated
+qgraph(model2NoMeds, layout="spring", cut=0, maximum=.6, 
+       minimum=.03, theme = "colorblind",
+       groups=gr3,legend.cex=.4)
+
+
+
 delta <- model1Meds - model2NoMeds # comparing the two networks
 
 max(delta)
@@ -145,7 +157,7 @@ L<-averageLayout(model1Meds) # use same layout as Figure 1
 names = c("PCL1","PCL2","PCL3","PCL4","PCL5","PCL6","PCL7","PCL8","PCL9","PCL10","PCL11","PCL12","PCL13","PCL14","PCL15","PCL16","PCL17","PHQ1","PHQ2","PHQ3","PHQ4","PHQ5","PHQ6","PHQ7","PHQ8","PHQ9")
 qgraph(delta, labels = names, layout=L, vsize=6, cut=0, maximum=.5, 
        border.width=1.5, border.color="black", minimum=.03, 
-       groups=gr3,legend.cex=.4, nodeNames = names)
+       groups=gr3,legend.cex=.4, theme = "colorblind")
 cor(as.vector(model2NoMeds),as.vector(model1Meds), method="spearman") #0.96
 ```
 ## From this comparison we can see that there is very small, if any, difference between the two models (with medications or without)
@@ -166,13 +178,15 @@ mean(abs(deltaDep[upper.tri(deltaDep,diag=FALSE)]))
 
 cor(as.vector(modelDep),as.vector(modelNoDep), method="spearman") #0.99
 ```
+
 ```{r}
 #Compare using NTC
+# Medicated vs. unmedicated patients
 require(NetworkComparisonTest)
 set.seed(1337)
 pclNoMed_na <- na.omit(pclNoMed_Network)
 pclItem_na <- na.omit(pclItems2)
-compare_12 <- NCT(pclItem_na,pclNoMed_na, it=5000, binary.data=FALSE, test.edges=TRUE, edges='all', progressbar=TRUE)
+compare_12 <- NCT(pclItem_na,pclNoMed_na, it=5000, binary.data=FALSE, test.edges=TRUE, edges='all', progressbar=TRUE, test.centrality = TRUE, p.adjust.methods = "fdr")
 ```
 
 ```{r}
@@ -180,6 +194,10 @@ compare_12$nwinv.pval
 sum(compare_12$einv.pvals$"p-value" < 0.05) # how many edges are less than p=0.05 
 
 compare_12$glstrinv.pval # strength of network
+
+plot(compare_12, what = "network") 
+# there is a difference between networks
+plot(compare_12, what = "edge")
 ```
 ## Lets see cluters
 ```{r}
@@ -188,7 +206,80 @@ compare_12$glstrinv.pval # strength of network
 # 
 library(EGAnet)
 ega<-EGA(pclItems_noCluster, plot.EGA = TRUE, steps = 4)
-ega<-EGA(pclItems_noCluster, plot.EGA = TRUE, steps = 2) # here they find the four clusters like DSM
+ega<-EGA(pclItems_noCluster, plot.EGA = TRUE, steps = 1) # here they find the four clusters like DSM
 ```
 
 ## Running 2 steps EGA scales to 4 factors. Running 4 steps scales to three factors. 
+
+
+## Some descriptive statistics
+```{r desc}
+names(pclNetwork)
+table(pclNetwork$ADRXN_true)
+# 13218 with Antidepressants (93%)
+table(pclNoMed$ADRXN_true)
+```
+## Do sample descriptives
+```{r sample descriptives}
+# gather info on both meds and no meda
+pclAll <- dplyr::filter(vaDatclean, !is.na(BPCLTOT))
+# remove patients with more than 14 days apart PHQ and PCL
+pclAll$PCL_PHQdiff <- pclAll$PCLSURVEYDATE - pclAll$PHQSURVEYDATE
+pclAll <- dplyr::filter(pclAll, PCL_PHQdiff <= 14 & PCL_PHQdiff >= -14)
+summary(pclAll$AGE_OCT01)
+mean(pclAll$AGE_OCT01, na.rm=TRUE)
+sd(pclAll$AGE_OCT01, na.rm=TRUE)
+summary(pclAll$BPCLTOT)
+mean(pclAll$BPCLTOT)
+sd(pclAll$BPCLTOT)
+
+summary(pclAll$PHQSUMTOTAL)
+mean(pclAll$PHQSUMTOTAL, na.rm=TRUE)
+sd(pclAll$PHQSUMTOTAL, na.rm=TRUE)
+
+
+```
+
+## Play with Bnlearn package - for Baysian network analysis (causality/directions) --> Directed acyclic graph (DAG)
+
+```{r}
+require(bnlearn)
+require(Rgraphviz)
+
+## Hill Climbing Algorithm-- Bayesian network learned via Score-based methods & network averaging (bootstrap based)
+set.seed(123)
+bootnet <- bnlearn::boot.strength(pclItems2, R = 1000, algorithm = "hc", algorithm.args = list(restart = 5, perturb = 10), debug = TRUE, cpdag = TRUE)
+head(bootnet)
+
+## net1: use the optimal cutpoint according to Scurati & Nagarajan (2013) 
+avgnet1 <- bnlearn::averaged.network(bootnet)
+avgnet1      
+bnlearn::score(avgnet1, data =pclItems2)
+thresh <- avgnet1$learning$args[[1]]
+thresh                                  ## optimal significance threshold
+astr1 <- bnlearn::arc.strength(avgnet1,pclItems2, "bic-g")   ## compute edge strengths
+astr1
+
+##plot DAG
+
+suppressWarnings(bnlearn::strength.plot(avgnet1, astr1, shape = "ellipse", threshold = thresh))
+
+## Save DAG as a PDF
+pdf("Figure4.pdf", width = 12)
+suppressWarnings(bnlearn::strength.plot(avgnet1, astr1, shape = "ellipse", threshold = thresh))
+dev.off()
+# learn
+#dg <- hc(pclItems2)
+```
+### Intrusion symptoms are the cause of everything else basically
+
+
+```{r}
+# if (!requireNamespace("BiocManager", quietly=TRUE))
+#     install.packages("BiocManager")
+# BiocManager::install('Rgraphviz')
+
+```
+
+
+
