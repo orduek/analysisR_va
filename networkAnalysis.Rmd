@@ -88,6 +88,8 @@ plot(results_Net2, groups = gr2, cut=0, maximum=.5, minimum=.03)
 
 ```{r}
 centralityPlot(results_Net2, include = "all")
+# check level of cenrality
+sort(centrality(results_Net2)$OutDegree, decreasing = T)
 ```
 ## Maybe we should compare the netwrok of medicated vs. non medication patients
 ```{r}
@@ -116,6 +118,7 @@ gr3 <- list("Reexpirienceing"=c(1:5), "Avoidance"=c(6:7), "Emotional numbing"=c(
 plot(results_NoMed, groups = gr3,  cut=0, maximum=.5, minimum=.03)
 ```
 ```{r}
+sort(centrality(results_NoMed)$OutDegree, decreasing = T)
 centralityPlot(results_NoMed, include = "all")
 centralityPlot(list("Without medication" = results_NoMed, "With Medication" = results_Net2), include = c("Betweenness", "Strength", "Closeness", "ExpectedInfluence"), decreasing = TRUE) + theme_minimal() 
 ```
@@ -186,7 +189,7 @@ require(NetworkComparisonTest)
 set.seed(1337)
 pclNoMed_na <- na.omit(pclNoMed_Network)
 pclItem_na <- na.omit(pclItems2)
-compare_12 <- NCT(pclItem_na,pclNoMed_na, it=5000, binary.data=FALSE, test.edges=TRUE, edges='all', progressbar=TRUE, test.centrality = TRUE, p.adjust.methods = "fdr")
+compare_12 <- NCT(pclItem_na,pclNoMed_na, it=5000, binary.data=FALSE, test.edges=TRUE, edges='all', progressbar=TRUE, test.centrality = TRUE, centrality=c("strength","betweenness", "closeness"), p.adjust.methods = "fdr")
 ```
 
 ```{r}
@@ -194,7 +197,10 @@ compare_12$nwinv.pval
 sum(compare_12$einv.pvals$"p-value" < 0.05) # how many edges are less than p=0.05 
 
 compare_12$glstrinv.pval # strength of network
+compare_12$glstrinv.real
 
+compare_12$diffcen.pval
+compare_12$diffcen.real
 plot(compare_12, what = "network") 
 # there is a difference between networks
 plot(compare_12, what = "edge")
@@ -218,6 +224,7 @@ names(pclNetwork)
 table(pclNetwork$ADRXN_true)
 # 13218 with Antidepressants (93%)
 table(pclNoMed$ADRXN_true)
+
 ```
 ## Do sample descriptives
 ```{r sample descriptives}
@@ -259,7 +266,8 @@ thresh <- avgnet1$learning$args[[1]]
 thresh                                  ## optimal significance threshold
 astr1 <- bnlearn::arc.strength(avgnet1,pclItems2, "bic-g")   ## compute edge strengths
 astr1
-
+order(astr1)
+sortedAstr = astr1[order(astr1$strength),]
 ##plot DAG
 
 suppressWarnings(bnlearn::strength.plot(avgnet1, astr1, shape = "ellipse", threshold = thresh))
@@ -270,6 +278,49 @@ suppressWarnings(bnlearn::strength.plot(avgnet1, astr1, shape = "ellipse", thres
 dev.off()
 # learn
 #dg <- hc(pclItems2)
+#########################################################################################################################################################################################
+######################################################## USING Mcnally 2017 full method:#################################################################################################
+######################################################################################################################################################################################### 
+## filter the ones with a strength larger than 0.85 and a direction probability > 0.5
+bootnet[bootnet$strength > 0.85 & bootnet$direction > 0.5, ]
+
+## net1: build the average network using a 0.85 threshold (Sachs et al., 2005)
+avgnet1 <- averaged.network(bootnet, threshold = 0.85)
+avgnet1
+bnlearn::score(avgnet1, data = pclItems2)
+astr1 <- arc.strength(avgnet1, pclItems2, "bic-g")   ## compute edge strengths
+
+strength.plot(avgnet1, astr1, shape = "ellipse")
+
+## net2: use the optimal cutpoint, according to Scurati & Nagarajan (2013)
+avgnet2 <- averaged.network(bootnet)
+avgnet2      
+bnlearn::score(avgnet2, data = pclItems2)
+thresh <- avgnet2$learning$args[[1]]
+thresh                                  ## optimal significance threshold
+astr2 <- arc.strength(avgnet2, pclItems2, "bic-g")   ## compute edge strengths
+astr2
+
+suppressWarnings(strength.plot(avgnet2, astr2, shape = "ellipse", threshold = 0.5))
+
+## net3: use net2 threshold, edge strenghts are determined by direction probability
+boottab <- bootnet[bootnet$strength > thresh & bootnet$direction > 0.5, ]  ## edges in net2
+boottab
+astr3 <- boottab   ## table with direction probabilities
+astr3$strength <- astr3$direction  ## use the direction probabilities for edge width
+
+strength.plot(avgnet2, astr3, shape = "ellipse")
+## thick arrows indicate high directional probabilties, thin arrows low directional probabilities
+
+## net4: use net1 threshold, edge strenghts are determined by direction probability
+boottab <- bootnet[bootnet$strength > 0.85 & bootnet$direction > 0.5, ]  ## edges in net2
+boottab
+astr4 <- boottab   ## table with direction probabilities
+astr4$strength <- astr4$direction  ## use the direction probabilities for edge width
+
+strength.plot(avgnet1, astr4, shape = "ellipse")
+## thick arrows indicate high directional probabilties, thin arrows low directional probabilities
+######## 
 ```
 ### Intrusion symptoms are the cause of everything else basically
 
