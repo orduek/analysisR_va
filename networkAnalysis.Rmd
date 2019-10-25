@@ -194,25 +194,48 @@ compare_12 <- NCT(pclItem_na,pclNoMed_na, it=5000, binary.data=FALSE, test.edges
 
 ```{r}
 compare_12$nwinv.pval
-sum(compare_12$einv.pvals$"p-value" < 0.05) # how many edges are less than p=0.05 
+
+table(compare_12$einv.pvals$"p-value" < 0.05) # how many edges are less than p=0.05 
+# two edges - lets subset that
+sigEdge <- subset(compare_12$einv.pvals, compare_12$einv.pvals$`p-value`<0.05)
+
 
 compare_12$glstrinv.pval # strength of network
 compare_12$glstrinv.real
+compare_12$einv.real
 
 compare_12$diffcen.pval
 compare_12$diffcen.real
 plot(compare_12, what = "network") 
 # there is a difference between networks
+plot(compare_12, what = "strength")
+# no diff
 plot(compare_12, what = "edge")
+
+# two edges were found to be different. 12-15 and 12-20 (i.e. phq3)
+# lets look at each of them in the network:
+results_Net2$results
+# PCL13 - PHQ8  0.0 (graph results)
+# PHQ1 - PHQ8 0.0
+# Correlations:
+# 0.28
+# 0.36
+results_NoMed$results
+# PCL13 - PHQ8  0.0
+# PHQ1 - PHQ8 0.07
+# Correlations:
+# 0.33
+# 0.42
+
 ```
 ## Lets see cluters
 ```{r}
 # Here we use a method that was described in the following link to resulve cluster issues in graph theory.
 # https://journals.plos.org/plosone/article?id=10.1371/journal.pone.0174035
 # 
-library(EGAnet)
-ega<-EGA(pclItems_noCluster, plot.EGA = TRUE, steps = 4)
-ega<-EGA(pclItems_noCluster, plot.EGA = TRUE, steps = 1) # here they find the four clusters like DSM
+# library(EGAnet)
+# ega<-EGA(pclItems2, plot.EGA = TRUE, steps = 4)
+# ega<-EGA(pclNoMed_Network, plot.EGA = TRUE, steps = 1) # here they find the four clusters like DSM
 ```
 
 ## Running 2 steps EGA scales to 4 factors. Running 4 steps scales to three factors. 
@@ -273,7 +296,7 @@ sortedAstr = astr1[order(astr1$strength),]
 suppressWarnings(bnlearn::strength.plot(avgnet1, astr1, shape = "ellipse", threshold = thresh))
 
 ## Save DAG as a PDF
-pdf("Figure4.pdf", width = 12)
+postscript("Figure4.ps", width = 12)
 suppressWarnings(bnlearn::strength.plot(avgnet1, astr1, shape = "ellipse", threshold = thresh))
 dev.off()
 # learn
