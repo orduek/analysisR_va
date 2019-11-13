@@ -1,0 +1,65 @@
+---
+title: "Analyses for Network approach paper"
+output: html_notebook
+author: Or Duek
+---
+
+
+## This is a [Analysis] script for network approach analysis of PCL and PCL + PHQ9 networks. Cohort of VA/DoD administrative data set. 
+
+```{r}
+library(bootnet)
+require(tidyverse)
+require("corrplot")       ## correlation matrix plots
+require(qgraph)
+require(psychonetrics)
+# load data set
+source('/home/or/Documents/va_data/readData.r')
+```
+
+## Next we do some cleanning and then  descriptive statistics:
+
+```{r}
+# Addind time difference between PCL and PHQ
+# gather info on both meds and no meda
+
+# all patientes with PTSD and PCLTOT
+pclAll <- dplyr::filter(vaDatclean, !is.na(BPCLTOT))
+# plot pcl total score 
+hist(pclAll$BPCLTOT)
+# we have a minimum of 2 - so we have some NAs - let remove them
+pclAll_Nas <- filter(pclAll, BPCLTOT <=16)
+# total of 20 subjects with 16 or less in PCL (i.e. at least one missing variable)
+# we can remove them from analysis
+pclAll <- filter(pclAll, BPCLTOT >=17)
+# 159577 patients
+#pclNetwork <- pclNoNa # just medicated
+pclNetwork <- pclAll
+nrow(pclNetwork)
+hist(pclNetwork$BPCLTOT)
+
+pclNetwork$PCL_PHQdiff <- pclNetwork$PHQSURVEYDATE - pclNetwork$PCLSURVEYDATE
+pclPHQNetwork <- filter(pclNetwork, PCL_PHQdiff <= 14 & PCL_PHQdiff >= 0) # removing patients with more than 14 apart between PHQ9 and PCL-M
+pclPHQNetwork <- filter(pclPHQNetwork, BPCLTOT>=17)
+hist(pclPHQNetwork$PCL_PHQdiff)
+```
+
+## Do sample descriptives on all subjects
+```{r sample descriptives}
+# gather info on both meds and no meda
+# remove patients with more than 14 days apart PHQ and PCL
+summary(pclAll$AGE_OCT01)
+mean(pclAll$AGE_OCT01, na.rm=TRUE)
+sd(pclAll$AGE_OCT01, na.rm=TRUE)
+summary(pclAll$BPCLTOT)
+mean(pclAll$BPCLTOT)
+sd(pclAll$BPCLTOT)
+table(pclAll$FEMALE)
+summary(pclPHQNetwork$PHQSUMTOTAL)
+mean(pclPHQNetwork$PHQSUMTOTAL, na.rm=TRUE)
+sd(pclPHQNetwork$PHQSUMTOTAL, na.rm=TRUE)
+table(pclPHQNetwork$FEMALE)
+
+```
+
+

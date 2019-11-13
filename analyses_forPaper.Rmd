@@ -75,8 +75,8 @@ vaDatclean$STIMRXN_true <- case_when(vaDatclean$STIMRXN > 0 ~ 1, TRUE ~ 0)
 vaDatclean$ACVMSRXN_true <- case_when(vaDatclean$ACVMSRXN > 0 ~ 1, TRUE ~ 0)
 vaDatclean$LIRXN_true <- case_when(vaDatclean$LIRXN > 0 ~ 1, TRUE ~ 0)
 
-vaDatclean$sumMed <- vaDatclean$LIRXN_true + vaDatclean$ACVMSRXN_true + vaDatclean$STIMRXN_true + vaDatclean$AXSEDHPRXN_true + vaDatclean$APSRXN_true + vaDatclean$ADRXN_true 
-vaDatclean$sumMedCat <- factor(case_when(vaDatclean$sumMed==1 ~ '1', vaDatclean$sumMed == 2 ~ "2", vaDatclean$sumMed >= 3 ~ "3+"))
+vaDatclean$sumMed <- vaDatclean$AXSEDHPRXN_true + vaDatclean$APSRXN_true + vaDatclean$ADRXN_true # take only three classes
+vaDatclean$sumMedCat <- factor(case_when(vaDatclean$sumMed==1 ~ '1', vaDatclean$sumMed == 2 ~ "2", vaDatclean$sumMed == 3 ~ "3"))
 
 # create a censore variable who survived more than 30 days
 vaDatclean$MONTH1 <- case_when(vaDatclean$totalDays <= 30 ~ 1, TRUE ~ 0)
@@ -86,8 +86,8 @@ vaDatclean$threeComb <- case_when(vaDatclean$MAJORAFFECT==1 ~ "Dep", vaDatclean$
 table(vaDatclean$threeComb)
 vaDatclean$threeComb <- relevel(factor(vaDatclean$threeComb), 'noComb')
 
-
-
+table(vaDatclean$sumMedCat)
+table(vaDatclean$sumMed)
 ```
 
 
@@ -135,6 +135,12 @@ table(medicatedVa_datFirstV$threeComb)
 
 ##################################################################################################################
 ```
+```{r descriptive stats}
+sum(medicatedVa_dat$AGE_OCT01>100)
+hist(medicatedVa_dat$AGE_OCT01)
+medicatedVa_dat_sub <- subset(medicatedVa_dat, AGE_OCT01 < 100)
+summary(medicatedVa_dat_sub$AGE_OCT01)
+```
 
 ### When looking at total PTSD population, 224060 are without comorbidity and 234,673 are with depression
 ### When looking at medicated patients 
@@ -156,7 +162,7 @@ table(antiDP_dat$threeComb)
 surv_antiDP <- Surv(time = antiDP_dat$ADDAY, event = antiDP_dat$antiDPCensore)  
 summary(surv_antiDP)
 # now cox analysis
-fit.coxpDP <- coxph(surv_antiDP ~ PSYCTR + MARRIED + OEFOIF + race + threeComb + FEMALE +sumComorbid + sumMed, 
+fit.coxpDP <- coxph(surv_antiDP ~ PSYCTR + MARRIED + OEFOIF + race + threeComb + FEMALE +sumComorbid + sumMedCat, 
                    data = antiDP_dat)
 ggforest(fit.coxpDP, data = antiDP_dat)
 summary(fit.coxpDP)
@@ -174,7 +180,7 @@ table(antiANX_dat$antiAXCensore)
 surv_antiANX <- Surv(time = antiANX_dat$AXDAY, event = antiANX_dat$antiAXCensore)  
 summary(surv_antiANX)
 # now cox analysis
-fit.coxpANX <- coxph(surv_antiANX ~ PSYCTR + MARRIED + OEFOIF + race +threeComb + FEMALE+ sumComorbid + sumMed, 
+fit.coxpANX <- coxph(surv_antiANX ~ PSYCTR + MARRIED + OEFOIF + race +threeComb + FEMALE+ sumComorbid + sumMedCat, 
                    data = antiANX_dat)
 ggforest(fit.coxpANX, data = antiANX_dat)
 summary(fit.coxpANX)
@@ -191,7 +197,7 @@ sd(antiDP_dat$APSDAY, na.rm = TRUE)
 surv_antiAP <- Surv(time = antiAPX_dat$APSDAY, event = antiAPX_dat$antiPCensore)  
 summary(surv_antiAP)
 # now cox analysis
-fit.coxpAP <- coxph(surv_antiAP ~ PSYCTR + MARRIED + OEFOIF + race +threeComb + FEMALE+ sumComorbid + sumMed, 
+fit.coxpAP <- coxph(surv_antiAP ~ PSYCTR + MARRIED + OEFOIF + race +threeComb + FEMALE+ sumComorbid + sumMedCat, 
                    data = antiAPX_dat)
 ggforest(fit.coxpAP, data = antiAPX_dat)
 summary(fit.coxpAP)
@@ -221,11 +227,11 @@ table(threeMeds_dat$threeMedsCensore)
 surv_ThreeMeds <- Surv(time = threeMeds_dat$totalDaysThreeMeds, event = threeMeds_dat$threeMedsCensore)  
 summary(surv_ThreeMeds)
 # now cox analysis
-fit.coxpThreeMeds <- coxph(surv_ThreeMeds ~ PSYCTR + MARRIED + OEFOIF + race + threeComb + FEMALE + sumComorbid + sumMed, 
+fit.coxpThreeMeds <- coxph(surv_ThreeMeds ~ PSYCTR + MARRIED + OEFOIF + race + threeComb + FEMALE + sumComorbid + sumMedCat, 
                    data = threeMeds_dat)
 ggforest(fit.coxpThreeMeds, data = threeMeds_dat)
 summary(fit.coxpThreeMeds)
-```
+```d
 ## Results are the same in three medications toghether.
 ## Sample caracteristics
 ```{r sample_Car}
@@ -243,9 +249,10 @@ Doing a binomial regression model with censore =30 as dependent variable. AGE, n
 
 threeMeds_dat$censore30 <- case_when(threeMeds_dat$totalDaysThreeMeds>=30 ~ 0, threeMeds_dat$totalDaysThreeMeds<30 ~ 1, is.na(threeMeds_dat$totalDaysThreeMeds) ~ NA_real_)
 
-model1 <- glm(censore30 ~ AGE_OCT01 + PSYCTHR + MARRIED + race + sumComorbid+ sumMed + threeComb, data=threeMeds_dat, family = binomial)
+model1 <- glm(censore30 ~ AGE_OCT01 + PSYCTHR + MARRIED + race + sumComorbid+ sumMed, data=threeMeds_dat, family = binomial)
 summary(model1)
 model1_summ <- as.data.frame(summ(model1, exp = TRUE, scale =TRUE, digits = 5)$coeftable, optional = TRUE)  #just taking coeficient table and creating data frame to plot 
+summ(model1, exp = TRUE, scale =TRUE, digits = 5)
 ```
 ```{r PlotBinom}
 # plott the above
@@ -293,8 +300,10 @@ pclNoNa$pclA <- pclNoNa$PCL6 + pclNoNa$PCL7
 pclNoNa$pclN <- pclNoNa$PCL8 + pclNoNa$PCL9 + pclNoNa$PCL10 + pclNoNa$PCL11 + pclNoNa$PCL12
 pclNoNa$pclDA <- pclNoNa$PCL13 + pclNoNa$PCL14 + pclNoNa$PCL15
 pclNoNa$pclAA <- pclNoNa$PCL16 + pclNoNa$PCL17
+pclNoNa$pclTotal <- pclNoNa$pclR + pclNoNa$pclA + pclNoNa$pclN + pclNoNa$pclDA + pclNoNa$pclAA
+summary(pclNoNa$pclTotal)
 ```
-
+## All patients with valid PCL
 
 ```{r binomialReg}
 # Binomial regression
@@ -302,14 +311,23 @@ model2 <- glm(threeMedsCensore ~ scale(pclR) + scale(pclA) + scale(pclN) + scale
 summary(model2)
 summ(model2, exp = TRUE, scale =TRUE, digits = 5)
 plot_model(model2, show.values = TRUE, type = "est", transform = 'exp') + theme_minimal() # plotting the model
+
+## build a model with total PCL to check for sevirity of symptoms in general
+modelTotal <- glm(threeMedsCensore ~ scale(pclTotal) + AGE_OCT01 + PSYCTHR + MARRIED+ sumComorbid + sumMed, data=pclNoNa, family = binomial)
+summary(modelTotal)
+summ(modelTotal, exp = TRUE, scale =TRUE, digits = 5)
+
 ```
 
 
 ```{r censore30_binomial}
-model3 <- glm(censore30 ~ scale(pclR) + scale(pclA) + scale(pclN) + scale(pclDA) + scale(pclAA) + AGE_OCT01 + PSYCTHR + MARRIED+ sumComorbid + sumMed, data=pclNoNa, family = binomial)
+model3 <- glm(censore30 ~ scale(pclR) + scale(pclA) + scale(pclN) + scale(pclDA) + scale(pclAA) + AGE_OCT01 + PSYCTHR + MARRIED+ sumComorbid + sumMed + race, data=pclNoNa, family = binomial)
 summary(model2)
 summ(model3, exp = TRUE, scale =TRUE, digits = 5)
 plot_model(model3)
+
+model3pclTotal <- glm(censore30 ~pclTotal + AGE_OCT01 + PSYCTHR + MARRIED+ sumComorbid + race + sumMed  , data=pclNoNa, family = binomial)
+summ(model3pclTotal, exp = T, scale = T, digits = 5)
 ```
 
 ```{r plot_model2_3}

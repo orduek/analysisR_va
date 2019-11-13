@@ -115,7 +115,11 @@ tuning = 0.5)
 grep("PHQ", colnames(pclNoMed_Network))
 grep("PCL", colnames(pclNoMed_Network))
 gr3 <- list("Reexpirienceing"=c(1:5), "Avoidance"=c(6:7), "Emotional numbing"=c(8:12),"Dysphoric arousal"=c(13:15), "Anxios arousal"=c(16:17), "PHQ9-Depression"=c(18:26)) #PTSD symptoms categories B C D E
-plot(results_NoMed, groups = gr3,  cut=0, maximum=.5, minimum=.03)
+
+par(bg=NA)
+plot(results_NoMed, groups = gr3,  cut=0, maximum=.5, minimum=.03, bg = 'transparent')
+dev.copy(png, "unmdedicated_transparent.png")
+dev.off()
 ```
 ```{r}
 sort(centrality(results_NoMed)$OutDegree, decreasing = T)

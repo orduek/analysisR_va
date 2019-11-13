@@ -1,13 +1,20 @@
 ---
 title: "Note book for analysis of network of pcl and PHQ9 scores"
-output: html_notebook
+output:
+  html_document:
+    df_print: paged
+  html_notebook: default
+  pdf_document: default
 ---
 
 ```{r}
 library(bootnet)
 require(tidyverse)
 require("corrplot")       ## correlation matrix plots
-
+require(qgraph)
+```
+```{r}
+source('/home/or/Documents/va_data/readData.r')
 ```
 
 ```{r}
@@ -61,7 +68,7 @@ tuning = 0.5)
 # 8-12 emotional numbing (N)
 # 13-15 dysphoric arousal (DA)
 # 16-17 Anxios arousal (AA)
-gr1 <- list("Reexpirienceing"=c(1:5), "Avoidance"=c(6:7), "Emotional numbing"=c(8:12),"Dysphoric arousal"=c(13:15), "Anxios arousal"=c(16:17)) #PTSD Clusters
+gr1 <- list("Re-experiencing"=c(1:5), "Avoidance"=c(6:7), "Emotional numbing"=c(8:12),"Dysphoric arousal"=c(13:15), "Anxious arousal"=c(16:17)) #PTSD Clusters
 gr_likeDSM <- list("Intrusion"=c(1:5), "Avoidance"=c(6:12), "Arousal"=c(13:17)) #PTSD symptoms categories B C D
 plot(results_noCluster, groups = gr1, theme="colorblind")
 plot(results_noCluster, groups = gr_likeDSM)
@@ -76,13 +83,38 @@ centralityPlot(results_noCluster, include = "all")
 ```
 
 ## TO check net stability we run two bootsrap procedures - on edges and on subject
+### calculate edge weight accuracy paitent CAPS Network
+Network <- estimateNetwork(PTSD.dat, default = "EBICglasso")
+boot1 <- bootnet(Network, nBoots = 1000, nCores = 8)
+# plot edge weight accuracy
+accuracy1 <- plot(boot1, labels = FALSE, order = "sample")
+plot(Acc)
+# plot centrality (expected influence) stability
+boot2 <- bootnet(Network, statistics = "ExpectedInfluence", 
+                 nBoots = 1000, nCores = 8, type = "case")
+
+stability1<-plot(boot2, statistics = "ExpectedInfluence") + 
+  theme(legend.position = "none")
+
+#calculate corstability
+corStability(boot2)
 ```{r}
 # Bootstrap 1:
 #boot1 <- bootnet(results_noCluster, nCores = 8, nBoots = 1000, type = "nonparametric") 
-plot(boot1, labels = F, order = "sample")  + theme_minimal()
+#plot(boot1, labels = F, order = "sample")  + theme_minimal()
 # now lets look at subjects
 #boot2 <- bootnet(results_noCluster, nCores = 10, nBoots = 1000, type = "case")
-plot(boot2, labels = F, order = "sample") + theme_minimal()
+#plot(boot2, labels = F, order = "sample") + theme_minimal()
+
+# Measure Centrality stability
+#boot3 <- bootnet(results_noCluster, nCores = 8, nBoots = 1000, statistics = "strength", type = "case")
+#plot(boot3, labels = F, order = "sample") + theme_minimal()
+
+#plot sig diff edges
+#plot(boot1, "edge", plot = "difference", onlyNonZero = TRUE, order = "sample")
+
+#plot sig diff nodes
+#plot(boot1, "Strength") 
 ```
 
 
@@ -98,11 +130,11 @@ sd(pclAll$AGE_OCT01, na.rm=TRUE)
 summary(pclAll$BPCLTOT)
 mean(pclAll$BPCLTOT)
 sd(pclAll$BPCLTOT)
-
+table(pclAll$FEMALE)
 summary(pclPHQNetwork$PHQSUMTOTAL)
 mean(pclPHQNetwork$PHQSUMTOTAL, na.rm=TRUE)
 sd(pclPHQNetwork$PHQSUMTOTAL, na.rm=TRUE)
-
+table(pclPHQNetwork$FEMALE)
 
 ```
 
@@ -122,8 +154,8 @@ default = "EBICglasso",
 corMethod = "cor_auto",
 tuning = 0.5)
 
-grep("PHQ", colnames(pclItems2)) # get location of PHQ
-gr2 <- list("Reexpirienceing"=c(1:5), "Avoidance"=c(6:7), "Emotional numbing"=c(8:12),"Dysphoric arousal"=c(13:15), "Anxios arousal"=c(16:17), "PHQ9-Depression"=c(18:26)) #PTSD symptoms categories B C D E  
+grep("PHQ", colnames(pclPHQNetwork)) # get location of PHQ
+gr2 <- list("Re-experiencing"=c(1:5), "Avoidance"=c(6:7), "Emotional numbing"=c(8:12),"Dysphoric arousal"=c(13:15), "Anxious arousal"=c(16:17), "PHQ9-Depression"=c(18:26)) #PTSD symptoms categories B C D E  
 plot(results_PHQnoCluster, groups = gr2, theme="colorblind")
 centralityPlot(results_PHQnoCluster, include = "all")
 ```
@@ -155,6 +187,11 @@ sort(centrality(results_onlyPCL)$OutDegree, decreasing = T)
 ## compare centrality between the two networks
 ```{r}
 centralityPlot(list("Only PCL" = results_noCluster, "PCL_PHQ9" = results_PHQnoCluster, "onlyPCL_PHQ_data" = results_onlyPCL), include = c("Betweenness", "Strength", "Closeness", "ExpectedInfluence"), decreasing = TRUE) + theme_minimal() 
+
+# if we graph only the PCL 17 
+#centralityPlot(list("Only PCL" = results_noCluster, "PCL_PHQ9" = results_PHQnoCluster$graph[1:17,1:17], "onlyPCL_PHQ_data" = results_onlyPCL), include = c("Betweenness", "Strength", "Closeness", "ExpectedInfluence"), decreasing = TRUE) + theme_minimal() 
+
+
 ```
 ## Now we will run DAG on each of the 2 networks. Starting with only PCL
 
@@ -164,7 +201,7 @@ require(Rgraphviz)
 # we start with just PCL
 ## Hill Climbing Algorithm-- Bayesian network learned via Score-based methods & network averaging (bootstrap based)
 set.seed(123)
-netDat <- sample_n(pclItems_noCluster, 5000) # randomly sample 3k subjects - works with this amount but not with 150k
+netDat <- sample_n(pclItems_noCluster, 10000) # randomly sample 10k subjects - works with this amount but not with 150k
 #pclPHQ_onlyPCL <- na.omit(pclPHQNetwork_justPCL)
 bootnet <- bnlearn::boot.strength(netDat, R = 1000, algorithm = "hc", algorithm.args = list(restart = 5, perturb = 10), debug = TRUE, cpdag = TRUE)
 head(bootnet)
@@ -188,50 +225,188 @@ postscript("Figure4.ps", width = 12)
 suppressWarnings(bnlearn::strength.plot(avgnet1, astr1, shape = "ellipse", threshold = thresh))
 dev.off()
 ```
-## Run network comparison 
+## Run bridge analysis
+
 ```{r}
-#Compare using NTC
-# Medicated vs. unmedicated patients
-require(NetworkComparisonTest)
-set.seed(1337)
-# comparing the two networks (removing all PHQ items from the depression + PTSD network to create same sized matrices)
-compare_12 <- NCT(results_noCluster$graph,results_PHQnoCluster$graph[1:17,1:17], it=5000, binary.data=FALSE, test.edges=TRUE, edges='all', progressbar=TRUE, test.centrality = TRUE, centrality=c("strength","betweenness", "closeness"), p.adjust.methods = "fdr")
+require(networktools)
+#calculate bridge metrics
+PTSDMDD.dat.cor.matrix<-cor_auto(pclPHQNetwork_noCluster)
+names = c("PCL1","PCL2","PCL3","PCL4","PCL5","PCL6","PCL7","PCL8","PCL9","PCL10","PCL11","PCL12","PCL13","PCL14","PCL15","PCL16","PCL17","PHQ1","PHQ2","PHQ3","PHQ4","PHQ5","PHQ6","PHQ7","PHQ8","PHQ9")
+PTSDMDD.partial.corr.network<-qgraph(PTSDMDD.dat.cor.matrix, graph="EBICglasso", labels = names, layout = "spring", sampleSize=nrow(pclPHQNetwork_noCluster))
+b <- bridge(PTSDMDD.partial.corr.network,communities = list("PCL"=c(1:17), "PHQ9"=c(18:26)), useCommunities = "all", directed = NULL, nodes = NULL)
+bridge_expectedinfluence<-plot(b, order="value", include = "Bridge Expected Influence (1-step)", zscore=TRUE)
+
+```
+
+## Compare between the two networks 
+We used the same method that was used in **Armour et al. 2017**
+
+```{r}
+results_PHQnoCluster.forDelta<-results_PHQnoCluster$graph[1:17,1:17] # delete covariates from full network with covariates
+
+delta<-results_noCluster$graph - results_PHQnoCluster.forDelta #delta network
+max(delta)
+mean(abs(delta[upper.tri(delta,diag=FALSE)]))
+colnames(delta)<-rownames(delta)
+
+gr1 <- list("Reexpirienceing"=c(1:5), "Avoidance"=c(6:7), "Emotional numbing"=c(8:12),"Dysphoric arousal"=c(13:15), "Anxios arousal"=c(16:17)) #PTSD Clusters
+
+
+L<-averageLayout(results_noCluster$graph) # use same layout as Figure 1
+pdf("Fig4.pdf", width=9, height=7)
+qgraph(delta, layout=L, vsize=6, cut=0, maximum=.5, 
+       border.width=1.5, minimum=.03, theme="colorblind",
+       groups=gr1
+       )
+dev.off()
+
+cor(as.vector(results_PHQnoCluster.forDelta),as.vector(results_noCluster$graph), method="spearman") #0.972
+
 ```
 
 ```{r}
-compare_12$nwinv.pval
+### A. mean edge weight among symptoms=0.05; adding covariates reduces sum of edges among symptoms by 6.3%
+mean(abs(delta[upper.tri(delta,diag=FALSE)]))
+sum1<-sum(abs(results_noCluster$graph[upper.tri(results_noCluster$graph,diag=FALSE)])); sum1     # 8.26; sum/2 of ptsd network matrix
+mean1<-mean(abs(results_noCluster$graph[upper.tri(results_noCluster$graph,diag=FALSE)])); mean1  # 0.06; mean edge strength
+sum2<-sum(abs(results_PHQnoCluster.forDelta[upper.tri(results_PHQnoCluster.forDelta,diag=FALSE)])); sum2             # 7.73; sum/2 of ptsd + covariates matrix, with covariate cells deleted (ptsd network accounting for covariates but without them)
+mean2<-mean(abs(results_PHQnoCluster.forDelta[upper.tri(results_PHQnoCluster.forDelta,diag=FALSE)])); mean2          # 0.05; mean edge strength
+1-sum2/sum1 # change in connectivity of PTSD network once symptoms are added 6.3%
 
-table(compare_12$einv.pvals$"p-value" < 0.05) # how many edges are less than p=0.05 
+### B. mean edge weight among covariates=0.09
+graph.m3<-results_PHQnoCluster$graph[-c(1:17),-c(1:17)] # just covariate connections of full network
+sum3<-sum(abs(graph.m3[upper.tri(graph.m3,diag=FALSE)])); sum3            # 3.36
+mean3<-mean(abs(graph.m3[upper.tri(graph.m3,diag=FALSE)])); mean3         # 0.09
 
-sigEdge <- subset(compare_12$einv.pvals, compare_12$einv.pvals$`p-value`<0.05)
+### C. mean edge weight symptoms-covaraites=0.028
+graph.m4<-results_PHQnoCluster$graph[-c(1:17),-c(18:26)]  # just connection betw covariates and symptoms
+sum4<-sum(abs(graph.m4[upper.tri(graph.m4,diag=FALSE)])); sum4            # 3.56
+mean4<-mean(abs(graph.m4[upper.tri(graph.m3,diag=FALSE)])); mean4         # 0.028
+```
+## Using Eiko's method to choose the best method for our sample
+
+```{r}
+### A. Gaussian Graphical Model, regularized
+df2 <- pclItems_noCluster
+n2 <- estimateNetwork(df2, default="EBICglasso", corMethod = "cor", corArgs = list(method="spearman"), threshold=FALSE)
+g2 <- plot(n2, legend.cex=.5, vsize=7)
+# Severely skewed data, so we use Spearman over polychoric correlations here, as recommended (https://psycnet.apa.org/record/2018-13501-001)
+# Warning: Dense network selected. But no negative edges, and bootstrapped edge weights look OK.
+# However, we can still try threshold=TRUE as recommended; see next.
+
+### B. Gaussian Graphical Model, regularized & thresholded
+n3 <- estimateNetwork(df2, default="EBICglasso", corMethod = "cor", corArgs = list(method="spearman"), threshold=TRUE)
+g3 <- plot(n3, layout=g2$layout, legend.cex=.5, vsize=7)
+# Network too sparse, enforcing high specificity at the cost of sensitivity not reasonable here.
+
+### C. Robustness: use new estimation procedure ggmModSelect (http://psychosystems.org/qgraph_1.5)
+n4 <- estimateNetwork(df2, default="ggmModSelect", corMethod = "cor", corArgs = list(method="spearman"))
+g4 <- plot(n4, layout=g2$layout, legend.cex=.5, vsize=7)
+
+ 
+require(OpenMx)
+# n3 stands out, too sparse; similarity n2 and n4 for robustness analyses:
+cor(vechs(n2$graph), vechs(n4$graph)) # 0.997
+cor(vechs(n2$graph), vechs(n4$graph), method="spearman") # 0.993
+cor(vechs(n2$graph), vechs(n3$graph), method="spearman") #0.99
+cor(vechs(n4$graph), vechs(n3$graph), method="spearman") #0.989
+
+# We choose n2 from here on, and report n4 in the supplementary. 
+```
+## Looks like all networks are highly correlated with each other. Next we will do the same test to PCL&PHQ9 network
+```{r}
+df2 <- pclPHQNetwork_noCluster
+n2 <- estimateNetwork(df2, default="EBICglasso", corMethod = "cor", corArgs = list(method="spearman"), threshold=FALSE)
+g2 <- plot(n2, legend.cex=.5, vsize=7)
+# Severely skewed data, so we use Spearman over polychoric correlations here, as recommended (https://psycnet.apa.org/record/2018-13501-001)
+# Warning: Dense network selected. But no negative edges, and bootstrapped edge weights look OK.
+# However, we can still try threshold=TRUE as recommended; see next.
+
+### B. Gaussian Graphical Model, regularized & thresholded
+n3 <- estimateNetwork(df2, default="EBICglasso", corMethod = "cor", corArgs = list(method="spearman"), threshold=TRUE)
+g3 <- plot(n3, layout=g2$layout, legend.cex=.5, vsize=7)
+# Network too sparse, enforcing high specificity at the cost of sensitivity not reasonable here.
+
+### C. Robustness: use new estimation procedure ggmModSelect (http://psychosystems.org/qgraph_1.5)
+n4 <- estimateNetwork(df2, default="ggmModSelect", corMethod = "cor", corArgs = list(method="spearman"))
+g4 <- plot(n4, layout=g2$layout, legend.cex=.5, vsize=7)
+
+ 
+require(OpenMx)
+# n3 stands out, too sparse; similarity n2 and n4 for robustness analyses:
+cor(vechs(n2$graph), vechs(n4$graph)) # 0.995
+cor(vechs(n2$graph), vechs(n4$graph), method="spearman") # 0.973
+cor(vechs(n2$graph), vechs(n3$graph), method="spearman") #0.92
+cor(vechs(n4$graph), vechs(n3$graph), method="spearman") #0.94
+
+# We choose n2 from here on, and report n4 in the supplementary. 
+```
+
+## We move on to test the model sampling half its patients and then run confirmatory analysis on the other half
+
+```{r}
+# Split Data into Training and Testing in R 
+sample_size = floor(0.5*nrow(pclItems_noCluster))
+set.seed(777)
+
+# randomly split data in r
+picked = sample(seq_len(nrow(pclItems_noCluster)),size = sample_size)
+train =pclItems_noCluster[picked,]
+test =pclItems_noCluster[-picked,]
+
+# Start run confirmatory analysis
+require(psychonetrics)
+# run model on half the subjects 
+net <- estimateNetwork(train, default = "ggmModSelect", verbose = FALSE)
+network <- 1*(net$graph != 0)
+model_frombootnet <- ggm(train, omega = network) %>% runmodel
+```
+
+```{r}
+adjacency <- 1*(getmatrix(model_frombootnet, "omega")!=0)
+confirmatory <- ggm(test, omega = adjacency)
+confirmatory <- confirmatory %>% runmodel
+
+confirmatory %>% fit
+```
+```{r}
+compare(configural = model_frombootnet , metric = confirmatory)
+```
 
 
-compare_12$glstrinv.pval # strength of network
-compare_12$glstrinv.real
-compare_12$einv.real
+## The model fits very well. Now we will run the same confirmatory analysis on the PCL with PHQ data
 
-compare_12$diffcen.pval
-compare_12$diffcen.real
-plot(compare_12, what = "network") 
-# there is a difference between networks
-plot(compare_12, what = "strength")
-# no diff
-plot(compare_12, what = "edge")
+```{r}
+pclPHQNetwork_noCluster
 
-# two edges were found to be different. 12-15 and 12-20 (i.e. phq3)
-# lets look at each of them in the network:
-results_Net2$results
-# PCL13 - PHQ8  0.0 (graph results)
-# PHQ1 - PHQ8 0.0
-# Correlations:
-# 0.28
-# 0.36
-results_NoMed$results
-# PCL13 - PHQ8  0.0
-# PHQ1 - PHQ8 0.07
-# Correlations:
-# 0.33
-# 0.42
+# Split Data into Training and Testing in R 
+sample_sizePHQ = floor(0.5*nrow(pclPHQNetwork_noCluster))
+set.seed(777)
+
+# randomly split data in r
+pickedPHQ = sample(seq_len(nrow(pclPHQNetwork_noCluster)),size = sample_sizePHQ)
+trainPHQ =pclPHQNetwork_noCluster[pickedPHQ,]
+testPHQ =pclPHQNetwork_noCluster[-pickedPHQ,]
+
+# Start run confirmatory analysis
+require(psychonetrics)
+# run model on half the subjects 
+netPHQ <- estimateNetwork(trainPHQ, default = "ggmModSelect", verbose = FALSE)
+networkPHQ <- 1*(netPHQ$graph != 0)
+model_frombootnetPHQ <- ggm(trainPHQ, omega = networkPHQ) %>% runmodel
 
 ```
+
+```{r}
+# confirmatory 
+adjacencyPHQ <- 1*(getmatrix(model_frombootnetPHQ, "omega")!=0)
+confirmatoryPHQ <- ggm(testPHQ, omega = adjacencyPHQ)
+confirmatoryPHQ <- confirmatoryPHQ %>% runmodel
+
+confirmatoryPHQ %>% fit
+```
+```{r}
+compare(configural = model_frombootnetPHQ , metric = confirmatoryPHQ)
+```
+# BIC and AIC very similar
 
