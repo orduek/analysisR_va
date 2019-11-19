@@ -231,7 +231,7 @@ fit.coxpThreeMeds <- coxph(surv_ThreeMeds ~ PSYCTR + MARRIED + OEFOIF + race + t
                    data = threeMeds_dat)
 ggforest(fit.coxpThreeMeds, data = threeMeds_dat)
 summary(fit.coxpThreeMeds)
-```d
+```
 ## Results are the same in three medications toghether.
 ## Sample caracteristics
 ```{r sample_Car}
@@ -248,8 +248,10 @@ Doing a binomial regression model with censore =30 as dependent variable. AGE, n
 ```{r 30Days_binomial}
 
 threeMeds_dat$censore30 <- case_when(threeMeds_dat$totalDaysThreeMeds>=30 ~ 0, threeMeds_dat$totalDaysThreeMeds<30 ~ 1, is.na(threeMeds_dat$totalDaysThreeMeds) ~ NA_real_)
+# change reference of psychotherapies to no (so result will show effect of psychotherapy)
+threeMeds_dat$PSYCTR <- relevel(threeMeds_dat$PSYCTR, ref = "no")
 
-model1 <- glm(censore30 ~ AGE_OCT01 + PSYCTHR + MARRIED + race + sumComorbid+ sumMed, data=threeMeds_dat, family = binomial)
+model1 <- glm(censore30 ~ AGE_OCT01 + PSYCTR + MARRIED + race + sumComorbid+ sumMed, data=threeMeds_dat, family = binomial)
 summary(model1)
 model1_summ <- as.data.frame(summ(model1, exp = TRUE, scale =TRUE, digits = 5)$coeftable, optional = TRUE)  #just taking coeficient table and creating data frame to plot 
 summ(model1, exp = TRUE, scale =TRUE, digits = 5)
@@ -307,13 +309,14 @@ summary(pclNoNa$pclTotal)
 
 ```{r binomialReg}
 # Binomial regression
-model2 <- glm(threeMedsCensore ~ scale(pclR) + scale(pclA) + scale(pclN) + scale(pclDA) + scale(pclAA) + AGE_OCT01 + PSYCTHR + MARRIED+ sumComorbid + sumMed, data=pclNoNa, family = binomial)
+pclNoNa$PSYCTR <- relevel(pclNoNa$PSYCTR, ref = "no")
+model2 <- glm(threeMedsCensore ~ scale(pclR) + scale(pclA) + scale(pclN) + scale(pclDA) + scale(pclAA) + AGE_OCT01 + PSYCTR + MARRIED+ sumComorbid + sumMed, data=pclNoNa, family = binomial)
 summary(model2)
 summ(model2, exp = TRUE, scale =TRUE, digits = 5)
 plot_model(model2, show.values = TRUE, type = "est", transform = 'exp') + theme_minimal() # plotting the model
 
 ## build a model with total PCL to check for sevirity of symptoms in general
-modelTotal <- glm(threeMedsCensore ~ scale(pclTotal) + AGE_OCT01 + PSYCTHR + MARRIED+ sumComorbid + sumMed, data=pclNoNa, family = binomial)
+modelTotal <- glm(threeMedsCensore ~ scale(pclTotal) + AGE_OCT01 + PSYCTR + MARRIED+ sumComorbid + sumMed, data=pclNoNa, family = binomial)
 summary(modelTotal)
 summ(modelTotal, exp = TRUE, scale =TRUE, digits = 5)
 
@@ -321,12 +324,12 @@ summ(modelTotal, exp = TRUE, scale =TRUE, digits = 5)
 
 
 ```{r censore30_binomial}
-model3 <- glm(censore30 ~ scale(pclR) + scale(pclA) + scale(pclN) + scale(pclDA) + scale(pclAA) + AGE_OCT01 + PSYCTHR + MARRIED+ sumComorbid + sumMed + race, data=pclNoNa, family = binomial)
+model3 <- glm(censore30 ~ scale(pclR) + scale(pclA) + scale(pclN) + scale(pclDA) + scale(pclAA) + AGE_OCT01 + PSYCTR + MARRIED+ sumComorbid + sumMed + race, data=pclNoNa, family = binomial)
 summary(model2)
 summ(model3, exp = TRUE, scale =TRUE, digits = 5)
 plot_model(model3)
 
-model3pclTotal <- glm(censore30 ~pclTotal + AGE_OCT01 + PSYCTHR + MARRIED+ sumComorbid + race + sumMed  , data=pclNoNa, family = binomial)
+model3pclTotal <- glm(censore30 ~pclTotal + AGE_OCT01 + PSYCTR + MARRIED+ sumComorbid + race + sumMed  , data=pclNoNa, family = binomial)
 summ(model3pclTotal, exp = T, scale = T, digits = 5)
 ```
 
