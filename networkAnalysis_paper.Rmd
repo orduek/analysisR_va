@@ -66,16 +66,16 @@ table(pclPHQNetwork$FEMALE)
 
 ```{r}
 # build data set only with PCL items
-pclItems <- select(pclAll, starts_with("PCL"))
+pclItems <- dplyr::select(pclAll, starts_with("PCL"))
 pclPHQItems <- dplyr::select(pclPHQNetwork, starts_with("PCL"))
 
-pclItems_noCluster <- select(pclItems, -PCLFY, -PCLSURVEYDATE, -PCLRAWSCORE)
+pclItems_noCluster <- dplyr::select(pclItems, -PCLFY, -PCLSURVEYDATE, -PCLRAWSCORE)
 nrow(pclItems_noCluster)
 pclItems_noCluster <- na.omit(pclItems_noCluster)
 nrow(pclItems_noCluster)
 
 
-pclPHQNetwork_noCluster <- select(pclPHQNetwork, starts_with("PCL"), -PCLFY, -PCLSURVEYDATE, -PCLRAWSCORE, -PCL_PHQdiff, PHQ1,PHQ2,PHQ3, PHQ4,PHQ5,PHQ6,PHQ7,PHQ8,PHQ9)
+pclPHQNetwork_noCluster <- dplyr::select(pclPHQNetwork, starts_with("PCL"), -PCLFY, -PCLSURVEYDATE, -PCLRAWSCORE, -PCL_PHQdiff, PHQ1,PHQ2,PHQ3, PHQ4,PHQ5,PHQ6,PHQ7,PHQ8,PHQ9)
 pclPHQNetwork_noCluster <- na.omit(pclPHQNetwork_noCluster)
 
 ```
@@ -100,15 +100,43 @@ g3 <- plot(n3, layout=g2$layout, legend.cex=.5, vsize=7)
 n4 <- estimateNetwork(df2, default="ggmModSelect", corMethod = "cor", corArgs = list(method="spearman"))
 g4 <- plot(n4, layout=g2$layout, legend.cex=.5, vsize=7)
 
- 
-require(OpenMx)
+## Nonregularized network - I've used this one simply enough - please comment on better methods
+labels <- names(df2)
 
+library(GGMnonreg)
+n5 <- GGMregress(df2,IC = "BIC", method= "forward")
+g5 <- qgraph(n5$pcor_or, layout = g2$layout, theme = "colorblind", labels = labels)
+
+
+## Using Bayesian 
+library(BGGM)
+n6 <- explore(df2, prior_sd = 0.5, iter = 5000, cores = 4) #prior_sd: 0.5 is standard and conservative; iter= number of iterations; cores = number of CPU cores
+# H1 for this network is, that edges are not zero (either negative or positive), H0 is that they are zero #
+E <- select(n6, BF_cut = 10, alternative = "two.sided") # two.sided = egdes can be positive or negative
+## Summary table of the network ##
+summary(E, summarize = T, log = TRUE, digits = 2)  # log TRUE: BF= ln(BF), BF_10 = evidence for H1, BF_01 = evidence for H0
+
+g6 <- qgraph(E$partials_non_zero,
+       legend = FALSE, layout = g2$layout, theme = "colorblind", labels = labels)
+
+
+### Bayesian R2 ###
+# Compute Bayes R2 #
+fit_R2 <- estimate(df2, iter = 5000)
+# The following code gives me an error: no applicable method for 'predict' applied to an object of class "estimate". Tobias, do you have any idea?
+# R2 <- predict(fit_R2,
+#               ci_width = 0.90,
+#               samples = 1000,
+#               measure = "R2")
+
+require(OpenMx)
 cor(vechs(n2$graph), vechs(n4$graph)) # 0.997
 cor(vechs(n2$graph), vechs(n4$graph), method="spearman") # 0.993
 cor(vechs(n2$graph), vechs(n3$graph), method="spearman") #0.99
 cor(vechs(n4$graph), vechs(n3$graph), method="spearman") #0.989
-
-# We choose n2 from here on, although looks like all are very similar. 
+cor(vechs(n5$pcor_or), vechs(n2$graph), method = "spearman") #0.958
+cor(vechs(E$partials_non_zero), vechs(n2$graph), method = "spearman") #0.95
+# We choose n2 from here on, although looks like all are very similar - do you suggest different network to go with?
 ```
 
 ### Then we run the same for PCL and PHQ9 data
@@ -116,27 +144,62 @@ cor(vechs(n4$graph), vechs(n3$graph), method="spearman") #0.989
 ```{r}
 df3 <- pclPHQNetwork_noCluster
 n2_phq <- estimateNetwork(df3, default="EBICglasso", corMethod = "cor", corArgs = list(method="spearman"), threshold=FALSE)
-g2 <- plot(n2_phq, legend.cex=.5, vsize=7)
+g2_phq <- plot(n2_phq, legend.cex=.5, vsize=7)
 
 
 ### B. Gaussian Graphical Model, regularized & thresholded
 n3_phq <- estimateNetwork(df3, default="EBICglasso", corMethod = "cor", corArgs = list(method="spearman"), threshold=TRUE)
-g3 <- plot(n3_phq, layout=g2$layout, legend.cex=.5, vsize=7)
+g3_phq <- plot(n3_phq, layout=g2_phq$layout, legend.cex=.5, vsize=7)
 # Network too sparse, enforcing high specificity at the cost of sensitivity not reasonable here.
 
 ### C. Robustness: use new estimation procedure ggmModSelect (http://psychosystems.org/qgraph_1.5)
 n4_phq <- estimateNetwork(df3, default="ggmModSelect", corMethod = "cor", corArgs = list(method="spearman"))
-g4 <- plot(n4_phq, layout=g2$layout, legend.cex=.5, vsize=7)
+g4_phq <- plot(n4_phq, layout=g2_phq$layout, legend.cex=.5, vsize=7)
 
- 
+
+## New methods
+## Nonregularized network - I've used this one simply enough - please comment on better methods
+labels <- names(df3)
+
+library(GGMnonreg)
+n5_phq <- GGMregress(df3,IC = "BIC", method= "forward")
+g5_phq <- qgraph(n5_phq$pcor_or, layout = g2_phq$layout, theme = "colorblind", labels = labels)
+
+
+## Using Bayesian 
+library(BGGM)
+n6_phq <- explore(df3, prior_sd = 0.5, iter = 5000, cores = 4) #prior_sd: 0.5 is standard and conservative; iter= number of iterations; cores = number of CPU cores
+# H1 for this network is, that edges are not zero (either negative or positive), H0 is that they are zero #
+E_phq <- select(n6_phq, BF_cut = 10, alternative = "two.sided") # two.sided = egdes can be positive or negative
+## Summary table of the network ##
+summary(E_phq, summarize = T, log = TRUE, digits = 2)  # log TRUE: BF= ln(BF), BF_10 = evidence for H1, BF_01 = evidence for H0
+
+g6_phq <- qgraph(E_phq$partials_non_zero,
+       legend = FALSE, layout = g2_phq$layout, theme = "colorblind", labels = labels)
+
+
+
 require(OpenMx)
 # n3 stands out, too sparse; similarity n2 and n4 for robustness analyses:
 cor(vechs(n2_phq$graph), vechs(n4_phq$graph)) # 0.995
 cor(vechs(n2_phq$graph), vechs(n4_phq$graph), method="spearman") # 0.973
 cor(vechs(n2_phq$graph), vechs(n3_phq$graph), method="spearman") #0.92
 cor(vechs(n4_phq$graph), vechs(n3_phq$graph), method="spearman") #0.94
+cor(vechs(n5_phq$pcor_or), vechs(n2_phq$graph), method = "spearman") #0.958
+cor(vechs(E_phq$partials_non_zero), vechs(n2_phq$graph), method = "spearman") #0.948
+# We choose n2_phq from here on - should we go with a different one? 
 
-# We choose n2_phq from here on
+# run goldbricker to test correlation between nodes
+library(networktools)
+gold <- goldbricker(df3)
+print(gold$suggested_reductions)
+print(gold$proportion_matrix)
+# If I'm doing it right - no suggested reductions
+# 
+# just want to see wat's going on
+cor.test(df3$PCL13, df3$PHQ3) # highly correlated
+
+cor.test(df3$PCL15, df3$PHQ7)
 ```
 ## OK -  so we will use n2 for PCL and n2_phq for PCL and PHQ9 analysis.
 
@@ -166,21 +229,21 @@ centralityPlot(n2, include = "all")
 Check stability of network
 ```{r}
 # Bootstrap 1:
-boot1 <- bootnet(n2, nCores = 6, nBoots = 1000, type = "nonparametric") 
-plot(boot1, labels = F, order = "sample")  + theme_minimal()
+#boot1 <- bootnet(n2, nCores = 6, nBoots = 1000, type = "nonparametric") 
+#plot(boot1, labels = F, order = "sample")  + theme_minimal()
 # now lets look at subjects
-boot2 <- bootnet(n2, nCores = 6, nBoots = 1000, type = "case")
-plot(boot2, labels = F, order = "sample") + theme_minimal()
+#boot2 <- bootnet(n2, nCores = 6, nBoots = 1000, type = "case")
+#plot(boot2, labels = F, order = "sample") + theme_minimal()
 
 # Measure Centrality stability
-boot3 <- bootnet(n2, nCores = 6, nBoots = 1000, statistics = "strength", type = "case")
-plot(boot3, labels = F, order = "sample") + theme_minimal()
+#boot3 <- bootnet(n2, nCores = 6, nBoots = 1000, statistics = "strength", type = "case")
+#plot(boot3, labels = F, order = "sample") + theme_minimal()
 
 #plot sig diff edges
-plot(boot1, "edge", plot = "difference", onlyNonZero = TRUE, order = "sample")
+#plot(boot1, "edge", plot = "difference", onlyNonZero = TRUE, order = "sample")
 
 #plot sig diff nodes
-plot(boot1, "Strength") 
+#plot(boot1, "Strength") 
 ```
 
 ## Running same analysis on PCL with PHQ9 data
@@ -214,7 +277,7 @@ plot(boot1_phq, "Strength")
 
 # present a graph with centrality of both networks
 ```{r}
-centralityPlot(list("Only PCL" = n2, "PCL_PHQ9" = n2_phq, "onlyPCL_PHQ_data" = results_onlyPCL), include = c("Betweenness", "Strength", "Closeness", "ExpectedInfluence"), decreasing = TRUE) + theme_minimal() 
+centralityPlot(list("Only PCL" = n2, "PCL_PHQ9" = n2_phq), include = c("Betweenness", "Strength", "Closeness", "ExpectedInfluence"), decreasing = TRUE) + theme_minimal() 
 
 # if we graph only the PCL 17 
 #centralityPlot(list("Only PCL" = results_noCluster, "PCL_PHQ9" = results_PHQnoCluster$graph[1:17,1:17], "onlyPCL_PHQ_data" = results_onlyPCL), include = c("Betweenness", "Strength", "Closeness", "ExpectedInfluence"), decreasing = TRUE) + theme_minimal() 
@@ -244,14 +307,14 @@ model_frombootnet <- ggm(train, omega = network) %>% runmodel
 # Run confirmatory analysis
 
 ```{r}
-adjacency <- 1*(getmatrix(model_frombootnet, "omega")!=0)
+adjacency <- network #1*(getmatrix(model_frombootnet, "omega")!=0)
 confirmatory <- ggm(test, omega = adjacency)
 confirmatory <- confirmatory %>% runmodel
 
 confirmatory %>% fit
 ```
 ```{r}
-compare(configural = model_frombootnet , metric = confirmatory)
+compare(train = model_frombootnet , test = confirmatory)
 ```
 ## Running confirmatory analysis on PCL and PHQ9
 ```{r}
@@ -276,7 +339,7 @@ model_frombootnetPHQ <- ggm(trainPHQ, omega = networkPHQ) %>% runmodel
 ```
 ```{r}
 # confirmatory 
-adjacencyPHQ <- 1*(getmatrix(model_frombootnetPHQ, "omega")!=0)
+adjacencyPHQ <- networkPHQ # fixed according to Eiko's comment
 confirmatoryPHQ <- ggm(testPHQ, omega = adjacencyPHQ)
 confirmatoryPHQ <- confirmatoryPHQ %>% runmodel
 
@@ -284,10 +347,23 @@ confirmatoryPHQ %>% fit
 ```
 
 ```{r}
-compare(configural = model_frombootnetPHQ , metric = confirmatoryPHQ)
+compare(train = model_frombootnetPHQ , test = confirmatoryPHQ)
 ```
+## As suggested - I've added data driven clustering using EGA
+```{r}
+library(EGAnet)
+# CLuter of PCL and PHQ
+ega<-EGA(df3, plot.EGA = TRUE, steps = 4)
+
+# CLuter only PCL
+egaPCL<-EGA(df2, plot.EGA = TRUE, steps = 4)
+# use different load
+egaPCL_load0.5<-EGA(df2, plot.EGA = TRUE, steps = 4, load = 0.5)
+
+```
+## Only PCL has three clusters (when EGA load is set to 0.7 )
 
 # Next things
-1. Should deal with PCL15 and PHQ9-7 (two concentration) , and PCL13 anf PHQ9-3 (two sleep)
-2. Should we run DAG also (Tobias against, Eiko also?)
+1. Should deal with PCL15 and PHQ9-7 (two concentration) , and PCL13 anf PHQ9-3 (two sleep) - please see tests above and comment on that. 
+2. Should we run DAG also (Tobias against, Eiko also?) - For now - removing DAG
 3. 
