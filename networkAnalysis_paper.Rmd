@@ -7,7 +7,7 @@ output:
 ---
 
 
-## This is a *Analysis* script for network approach analysis of PCL and PCL + PHQ9 networks. Cohort of VA/DoD administrative data set. 
+## This is an *Analysis* script for network approach analysis of PCL and PCL + PHQ9 networks. Cohort of VA/DoD administrative data set. 
 
 ```{r}
 library(bootnet)
