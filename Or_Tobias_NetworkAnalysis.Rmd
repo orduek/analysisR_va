@@ -30,22 +30,27 @@ df_print: paged
 ## 1. Load libraries
 ```{r}
 # Data handeling
-if(!require("tidyverse")) install.packages("tidyverse")
-if(!require("corrplot")) install.packages("corrplot")  ## correlation matrix plots
-if(!require("OpenMX")) install.packages("OpenMx") 
-
-# Network packages
-if(!require("qgraph")) install.packages("qgraph")
-if(!require("psychonetrics")) install.packages("psychonetrics")
-if(!require("bootnet")) install.packages("bootnet")
-if(!require("mgm")) install.packages("mgm")
-if(!require("networktools")) install.packages("networktools")
-if(!require("EGAnet")) install.packages("EGAnet")
+# if(!require("tidyverse")) install.packages("tidyverse")
+# if(!require("corrplot")) install.packages("corrplot")  ## correlation matrix plots
+# if(!require("OpenMX")) install.packages("OpenMx") 
+# 
+# # Network packages
+ if(!require("qgraph")) install.packages("qgraph")
+ if(!require("psychonetrics")) install.packages("psychonetrics")
+ if(!require("bootnet")) install.packages("bootnet")
+ if(!require("mgm")) install.packages("mgm")
+ if(!require("networktools")) install.packages("networktools")
+ if(!require("EGAnet")) install.packages("EGAnet")
 
 # devtools::install_github("donaldRwilliams/BGGM", force = TRUE)
 # devtools::install_github("donaldRwilliams/GGMnonreg", force = TRUE)
 library(BGGM)
 library(GGMnonreg)
+
+require("tidyverse")
+require("corrplot")
+library(OpenMx)
+library(devtools)
 ```
  
 ## 2. Import and prepare data  & descriptives
@@ -120,11 +125,14 @@ pclPHQNetwork_noCluster <- na.omit(pclPHQNetwork_noCluster)
 #### We compare several models to set the one's we would use thorugh the rest of analysis
 #### First we do it on the PCL items alone (whole 150k)
 ```{r}
-# Define labels
-labels <- names(df2)
+
 
 ### A. Gaussian Graphical Model, regularized
 df2 <- pclItems_noCluster
+
+# Define labels
+labels <- names(df2)
+
 n2 <- estimateNetwork(df2, default="EBICglasso", corMethod = "cor", corArgs = list(method="spearman"), threshold=FALSE)
 g2 <- plot(n2, legend.cex=.5, vsize=7)
 # Severely skewed data, so we use Spearman over polychoric correlations here, as recommended (https://psycnet.apa.org/record/2018-13501-001)
@@ -144,13 +152,13 @@ n5 <- GGMregress(df2,IC = "BIC", method= "forward")
 g5 <- qgraph(n5$pcor_or, layout = g2$layout, theme = "colorblind", labels = labels)
 
 ### D.2 - TOBIAS' SUGGESTION - Nonregularized network
-n5_2 <- GGMnonreg::GGM_bootstrap(df2, alpha = 0.05)
-g5_2 <- qgraph(n5_2$pcor_selected, layout = g2$layout, theme = "colorblind", labels = labels)
+n5_2 <- GGMnonreg::GGMboot(df2, alpha = 0.05, sims = 1000)
+g5_2 <- qgraph(n5_2$mat_mean, layout = g2$layout, theme = "colorblind", labels = labels)
 
 ### E Bayesian Network
 n6 <- explore(df2, prior_sd = 0.5, iter = 5000, cores = 4)
 # H1 for this network is, that edges are not zero (either negative or positive), H0 is that they are zero #
-E <- select(n6, BF_cut = 10, alternative = "two.sided")
+E <- BGGM::select(n6, BF_cut = 10, alternative = "two.sided")
 # Summary table of the network ##
 summary(E, summarize = T, log = TRUE, digits = 2)  # log TRUE: BF= ln(BF), BF_10 = evidence for H1, BF_01 = evidence for H0
 # Plot
@@ -175,7 +183,7 @@ cor(vechs(n2$graph), vechs(n4$graph), method="spearman") # 0.993
 cor(vechs(n2$graph), vechs(n3$graph), method="spearman") #0.99
 cor(vechs(n4$graph), vechs(n3$graph), method="spearman") #0.989
 cor(vechs(n5$pcor_or), vechs(n2$graph), method = "spearman") #0.958
-cor(vechs(n5_2$pcor_selected), vechs(n2$graph), method = "spearman") #
+cor(vechs(n5_2$mat_mean), vechs(n2$graph), method = "spearman") #
 cor(vechs(E$partials_non_zero), vechs(n2$graph), method = "spearman") #0.95
 
 # Looks like all networks are highly correlated with each other. 
@@ -204,10 +212,13 @@ dev.off()
 #### Same procedure for combined PCL and PHQ9 network
 ```{r}
 
-labels_2 <- names(df3)
+
 
 ### A. Gaussian Graphical Model, regularized
 df3 <- pclPHQNetwork_noCluster
+
+labels_2 <- names(df3)
+
 n2_phq <- estimateNetwork(df3, default="EBICglasso", corMethod = "cor", corArgs = list(method="spearman"), threshold=FALSE)
 g2_phq <- plot(n2_phq, legend.cex=.5, vsize=7)
 
@@ -225,23 +236,16 @@ n5_phq <- GGMregress(df3,IC = "BIC", method= "forward")
 g5_phq <- qgraph(n5_phq$pcor_or, layout = g2_phq$layout, theme = "colorblind", labels = labels_2)
 
 ### D.2 - TOBIAS' SUGGESTION - Nonregularized network
-n5_2_phq <- GGMnonreg::GGM_bootstrap(df3, alpha = 0.05)
-g5_2_phq <- qgraph(n5_2_phq$pcor_selected, layout = g2_phq$layout, theme = "colorblind", labels = labels_2)
+
+n5_2_phq <- GGMnonreg::GGMboot(df3, alpha = 0.05, sims = 1000)
+g5_2_phq <- qgraph(n5_2_phq$mat_mean, layout = g2_phq$layout, theme = "colorblind", labels = labels_2)
 
 
-## Using Bayesian 
-n6_phq <- explore(df3, prior_sd = 0.5, iter = 5000, cores = 4) #prior_sd: 0.5 is standard and conservative; iter= number of iterations; cores = number of CPU cores
-# H1 for this network is, that edges are not zero (either negative or positive), H0 is that they are zero #
-E_phq <- select(n6_phq, BF_cut = 10, alternative = "two.sided") # two.sided = egdes can be positive or negative
-## Summary table of the network ##
-summary(E_phq, summarize = T, log = TRUE, digits = 2)  # log TRUE: BF= ln(BF), BF_10 = evidence for H1, BF_01 = evidence for H0
-
-g6_phq <- qgraph(E_phq$partials_non_zero, legend = FALSE, layout = g2_phq$layout, theme = "colorblind", labels = labels_2)
 
 ### E Bayesian Network
 n6_phq <- explore(df3, prior_sd = 0.5, iter = 5000, cores = 4)
 # H1 for this network is, that edges are not zero (either negative or positive), H0 is that they are zero #
-E_phq <- select(n6_phq, BF_cut = 10, alternative = "two.sided")
+E_phq <- BGGM::select(n6_phq, BF_cut = 10, alternative = "two.sided")
 # Summary table of the network ##
 summary(E_phq, summarize = T, log = TRUE, digits = 2)  # log TRUE: BF= ln(BF), BF_10 = evidence for H1, BF_01 = evidence for H0
 # Plot
@@ -334,7 +338,7 @@ centralityPlot(n2, include = "all")
 
 ### 4.1 PCL & PHQ9 Network
 ```{r}
-grep("PHQ", colnames(pclPHQNetwork_noCluster)) # get location of PHQ
+#grep("PHQ", colnames(pclPHQNetwork_noCluster)) # get location of PHQ
 gr2 <- list("Re-experiencing"=c(1:5), "Avoidance"=c(6:7), "Emotional numbing"=c(8:12),"Dysphoric arousal"=c(13:15), "Anxious arousal"=c(16:17), "PHQ9-Depression"=c(18:26)) #PTSD symptoms categories B C D E  
 plot(n2_phq, groups = gr2, theme="colorblind")
 ```
@@ -350,21 +354,21 @@ centralityPlot(n2_phq, include = "all")
 #### Stability of PCL & PHQ9 network
 ```{r}
 # Bootstrap 1:
-boot1_phq <- bootnet(n2_phq, nCores = 6, nBoots = 1000, type = "nonparametric") 
-plot(boot1_phq, labels = F, order = "sample")  + theme_minimal()
+#boot1_phq <- bootnet(n2_phq, nCores = 6, nBoots = 1000, type = "nonparametric") 
+#plot(boot1_phq, labels = F, order = "sample")  + theme_minimal()
 # now lets look at subjects
-boot2_phq <- bootnet(n2_phq, nCores = 6, nBoots = 1000, type = "case")
-plot(boot2_phq, labels = F, order = "sample") + theme_minimal()
+#boot2_phq <- bootnet(n2_phq, nCores = 6, nBoots = 1000, type = "case")
+#plot(boot2_phq, labels = F, order = "sample") + theme_minimal()
 
 # Measure Centrality stability
 #boot3 <- bootnet(n2, nCores = 6, nBoots = 1000, statistics = "strength", type = "case")
 #plot(boot3, labels = F, order = "sample") + theme_minimal()
 
 #plot sig diff edges
-plot(boot1_phq, "edge", plot = "difference", onlyNonZero = TRUE, order = "sample")
+#plot(boot1_phq, "edge", plot = "difference", onlyNonZero = TRUE, order = "sample")
 
 #plot sig diff nodes
-plot(boot1_phq, "Strength") 
+#plot(boot1_phq, "Strength") 
 ```
 
 #### Centrality of both networks in a single graph
