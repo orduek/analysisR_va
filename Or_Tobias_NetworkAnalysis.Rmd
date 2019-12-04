@@ -7,7 +7,7 @@ df_print: paged
 ---
 ### This is an *Analysis* script for network approach analysis of PCL and PCL + PHQ9 networks. Cohort of VA/DoD administrative data set. 
 
-# Version 0.1 29.11.2019 - TRS
+# Version 0.2 04.12.2019 - TRS
   
 ## Table of Contents
 1.  Load libraries 
@@ -22,8 +22,9 @@ df_print: paged
 5.1 PCL Network
 5.2 PCL & PHQ9 Network
 6. Community Analysis
-7. Session info
-8. Open Questions
+7. Predictability
+8. Session info
+9. Open Questions
 
 <br/><br/>
 <br/><br/>
@@ -51,6 +52,7 @@ require("tidyverse")
 require("corrplot")
 library(OpenMx)
 library(devtools)
+
 ```
  
 ## 2. Import and prepare data  & descriptives
@@ -202,18 +204,15 @@ R2_1<-as.numeric(pred1$errors$R2)
 mean(R2_1) # 0.224
 
 
-## Plot network and save as PDF##
-pdf("PCL_Network_predictab.pdf", width=10, height=10)
+# ## Plot network and save as PDF - for now plotting here only. 
+# pdf("PCL_Network_predictab.pdf", width=10, height=10)
 g2 <- plot(n2, pie=R2_1, title="PCL-Network", legend.cex=.5, vsize=7)
-dev.off()
+#dev.off()
 ```
 
 ### 3.2  PCL & PHQ9 Network
 #### Same procedure for combined PCL and PHQ9 network
 ```{r}
-
-
-
 ### A. Gaussian Graphical Model, regularized
 df3 <- pclPHQNetwork_noCluster
 
@@ -261,7 +260,23 @@ g6 <- qgraph(E_phq$partials_non_zero, legend = FALSE, layout = g2_phq$layout, th
 #               samples = 1000,
 #               measure = "R2")
 ```
+#### Estiamte Predictability (using mgm) for PCL & PHQ9
+```{r}
+fit2 <- mgm(data = na.omit(df3), type = rep('g', 26), lambdaSel = 'CV', level = rep(1,26), k = 3)
+pred2 <- predict(fit2, na.omit(df3), errorCon = "R2")
 
+pred2$errors #list with predcitability for each node
+
+# Average node predictability #
+R2_2<-as.numeric(pred2$errors$R2)
+mean(R2_2) # 0.224
+
+
+# ## Plot network and save as PDF - for now plotting here only. 
+# pdf("PCL_Network_predictab.pdf", width=10, height=10)
+g3 <- plot(n2_phq, pie=R2_2, title="PCL&PHQ9-Network", legend.cex=.5, vsize=7)
+#dev.off()
+```
 #### Correlate the different networks with the first network (EBIC, spearman) to check similarity
 ```{r}
 cor(vechs(n2_phq$graph), vechs(n4_phq$graph)) # 0.995
@@ -289,11 +304,6 @@ cor.test(df3$PCL13, df3$PHQ3) # highly correlated
 cor.test(df3$PCL15, df3$PHQ7)
 ```
 
-## Open questions I
-Should consider running other kinds of analysis:
-1. Only PCL - but remove all participants that will take part in PCL&PHQ one
-2. Only PCL - but only with participants that also has PHQ data (aroun 30k)
-3. Remove item 3 from PHQ9, as it asks about sleep, similar to item 13 in PCL
 <br/><br/>
 <br/><br/>
 ## 4. Estiamte Networks incl. centrality and stability analyses
@@ -472,13 +482,6 @@ session_info()
 <br/><br/>
 <br/><br/>
 # 8. Open Questions
-### Open questions I (see above) 
-Should consider running other kinds of analysis:
-1. Only PCL - but remove all participants that will take part in PCL&PHQ one
-2. Only PCL - but only with participants that also has PHQ data (aroun 30k)
-3. Remove item 3 from PHQ9, as it asks about sleep, similar to item 13 in PCL
-<br/><br/>
 ### Open Questions II
 1. Should deal with PCL15 and PHQ9-7 (two concentration) , and PCL13 anf PHQ9-3 (two sleep) - please see tests above and comment on that. 
-2. Should we run DAG also (Tobias against, Eiko also?) - For now - removing DAG
-3. *Tobias* at all: Should we include Predictability?
+2. *Tobias* at all: Should we include Predictability? I think so
