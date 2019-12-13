@@ -406,6 +406,8 @@ test =pclItems_noCluster[-picked,]
 
 # Start run confirmatory analysis
 # run model on half the subjects 
+# shuold we consider comparing fit of different sets of models? or is it too much?
+#net <-  estimateNetwork(train, default="EBICglasso", corMethod = "cor", corArgs = list(method="spearman"), threshold=FALSE)
 net <- estimateNetwork(train, default = "ggmModSelect", verbose = FALSE)
 network <- 1*(net$graph != 0)
 model_frombootnet <- ggm(train, omega = network) %>% runmodel
@@ -442,6 +444,7 @@ testPHQ =pclPHQNetwork_noCluster[-pickedPHQ,]
 # Start run confirmatory analysis
 require(psychonetrics)
 # run model on half the subjects 
+#netPHQ <- estimateNetwork(trainPHQ, default="EBICglasso", corMethod = "cor", corArgs = list(method="spearman"), threshold=FALSE)
 netPHQ <- estimateNetwork(trainPHQ, default = "ggmModSelect", verbose = FALSE)
 networkPHQ <- 1*(netPHQ$graph != 0)
 model_frombootnetPHQ <- ggm(trainPHQ, omega = networkPHQ) %>% runmodel
