@@ -7,7 +7,7 @@ df_print: paged
 ---
 ### This is an *Analysis* script for network approach analysis of PCL and PCL + PHQ9 networks. Cohort of VA/DoD administrative data set. 
 
-# Version 0.2 04.12.2019 - TRS
+# Version 0. 13.12.2019 - OAD
   
 ## Table of Contents
 1.  Load libraries 
@@ -201,7 +201,7 @@ pred1$errors #list with predcitability for each node
 
 # Average node predictability #
 R2_1<-as.numeric(pred1$errors$R2)
-mean(R2_1) # 0.224
+mean(R2_1) # 0.464
 
 
 # ## Plot network and save as PDF - for now plotting here only. 
@@ -313,7 +313,7 @@ cor.test(df3$PCL15, df3$PHQ7)
 gr1 <- list("Re-experiencing"=c(1:5), "Avoidance"=c(6:7), "Emotional numbing"=c(8:12),"Dysphoric arousal"=c(13:15), "Anxious arousal"=c(16:17)) #PTSD Clusters
 gr_likeDSM <- list("Intrusion"=c(1:5), "Avoidance"=c(6:12), "Arousal"=c(13:17)) #PTSD symptoms categories B C D
 
-g2 <- plot(n2, legend.cex=.5, vsize=7, theme = "colorblind", groups = gr1)
+g2 <- plot(n2, pie=R2_1, legend.cex=.5, vsize=7, theme = "colorblind", groups = gr1)
 
 # Currently no predictability analysis. We should discuss if we want to include it
 ```
@@ -329,28 +329,28 @@ centralityPlot(n2, include = "all")
 #### Stability of PCL network
 ```{r}
 # Bootstrap 1:
-#boot1 <- bootnet(n2, nCores = 6, nBoots = 1000, type = "nonparametric") 
-#plot(boot1, labels = F, order = "sample")  + theme_minimal()
+boot1 <- bootnet(n2, nCores = 6, nBoots = 1000, type = "nonparametric") 
+plot(boot1, labels = F, order = "sample")  + theme_minimal()
 # now lets look at subjects
-#boot2 <- bootnet(n2, nCores = 6, nBoots = 1000, type = "case")
-#plot(boot2, labels = F, order = "sample") + theme_minimal()
+boot2 <- bootnet(n2, nCores = 6, nBoots = 1000, type = "case")
+plot(boot2, labels = F, order = "sample") + theme_minimal()
 
 # Measure Centrality stability
 #boot3 <- bootnet(n2, nCores = 6, nBoots = 1000, statistics = "strength", type = "case")
 #plot(boot3, labels = F, order = "sample") + theme_minimal()
 
 #plot sig diff edges
-#plot(boot1, "edge", plot = "difference", onlyNonZero = TRUE, order = "sample")
+plot(boot1, "edge", plot = "difference", onlyNonZero = TRUE, order = "sample")
 
 #plot sig diff nodes
-#plot(boot1, "Strength") 
+plot(boot1, "Strength") 
 ```
 
 ### 4.1 PCL & PHQ9 Network
 ```{r}
 #grep("PHQ", colnames(pclPHQNetwork_noCluster)) # get location of PHQ
 gr2 <- list("Re-experiencing"=c(1:5), "Avoidance"=c(6:7), "Emotional numbing"=c(8:12),"Dysphoric arousal"=c(13:15), "Anxious arousal"=c(16:17), "PHQ9-Depression"=c(18:26)) #PTSD symptoms categories B C D E  
-plot(n2_phq, groups = gr2, theme="colorblind")
+plot(n2_phq, pie=R2_2, groups = gr2, theme="colorblind")
 ```
 
 #### Centrality graph of PCL & PHQ9 network
@@ -364,21 +364,21 @@ centralityPlot(n2_phq, include = "all")
 #### Stability of PCL & PHQ9 network
 ```{r}
 # Bootstrap 1:
-#boot1_phq <- bootnet(n2_phq, nCores = 6, nBoots = 1000, type = "nonparametric") 
+boot1_phq <- bootnet(n2_phq, nCores = 6, nBoots = 1000, type = "nonparametric") 
 #plot(boot1_phq, labels = F, order = "sample")  + theme_minimal()
 # now lets look at subjects
-#boot2_phq <- bootnet(n2_phq, nCores = 6, nBoots = 1000, type = "case")
+boot2_phq <- bootnet(n2_phq, nCores = 6, nBoots = 1000, type = "case")
 #plot(boot2_phq, labels = F, order = "sample") + theme_minimal()
 
 # Measure Centrality stability
-#boot3 <- bootnet(n2, nCores = 6, nBoots = 1000, statistics = "strength", type = "case")
-#plot(boot3, labels = F, order = "sample") + theme_minimal()
+boot3 <- bootnet(n2, nCores = 6, nBoots = 1000, statistics = "strength", type = "case")
+plot(boot3, labels = F, order = "sample") + theme_minimal()
 
 #plot sig diff edges
-#plot(boot1_phq, "edge", plot = "difference", onlyNonZero = TRUE, order = "sample")
+plot(boot1_phq, "edge", plot = "difference", onlyNonZero = TRUE, order = "sample")
 
 #plot sig diff nodes
-#plot(boot1_phq, "Strength") 
+plot(boot1_phq, "Strength") 
 ```
 
 #### Centrality of both networks in a single graph
@@ -471,7 +471,7 @@ ega<-EGA(df3, plot.EGA = TRUE, steps = 4)
 # Cluster only PCL
 egaPCL<-EGA(df2, plot.EGA = TRUE, steps = 4)
 # use different load
-egaPCL_load0.5<-EGA(df2, plot.EGA = TRUE, steps = 4, load = 0.5)
+#egaPCL_load0.5<-EGA(df2, plot.EGA = TRUE, steps = 2, model = "TMFG")
 ```
 ### Only PCL has three clusters (when EGA load is set to 0.7 )
 
