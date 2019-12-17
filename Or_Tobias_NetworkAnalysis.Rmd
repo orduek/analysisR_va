@@ -365,10 +365,10 @@ centralityPlot(n2_phq, include = "all")
 ```{r}
 # Bootstrap 1:
 boot1_phq <- bootnet(n2_phq, nCores = 6, nBoots = 1000, type = "nonparametric") 
-#plot(boot1_phq, labels = F, order = "sample")  + theme_minimal()
+plot(boot1_phq, labels = F, order = "sample")  + theme_minimal()
 # now lets look at subjects
 boot2_phq <- bootnet(n2_phq, nCores = 6, nBoots = 1000, type = "case")
-#plot(boot2_phq, labels = F, order = "sample") + theme_minimal()
+plot(boot2_phq, labels = F, order = "sample") + theme_minimal()
 
 # Measure Centrality stability
 boot3 <- bootnet(n2, nCores = 6, nBoots = 1000, statistics = "strength", type = "case")
