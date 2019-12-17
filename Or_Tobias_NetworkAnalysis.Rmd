@@ -7,7 +7,7 @@ df_print: paged
 ---
 ### This is an *Analysis* script for network approach analysis of PCL and PCL + PHQ9 networks. Cohort of VA/DoD administrative data set. 
 
-# Version 0. 13.12.2019 - OAD
+# Version 0.5 17.12.2019 - OAD
   
 ## Table of Contents
 1.  Load libraries 
@@ -369,10 +369,6 @@ plot(boot1_phq, labels = F, order = "sample")  + theme_minimal()
 # now lets look at subjects
 boot2_phq <- bootnet(n2_phq, nCores = 6, nBoots = 1000, type = "case")
 plot(boot2_phq, labels = F, order = "sample") + theme_minimal()
-
-# Measure Centrality stability
-boot3 <- bootnet(n2, nCores = 6, nBoots = 1000, statistics = "strength", type = "case")
-plot(boot3, labels = F, order = "sample") + theme_minimal()
 
 #plot sig diff edges
 plot(boot1_phq, "edge", plot = "difference", onlyNonZero = TRUE, order = "sample")
