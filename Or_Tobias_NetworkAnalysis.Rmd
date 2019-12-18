@@ -7,7 +7,7 @@ df_print: paged
 ---
 ### This is an *Analysis* script for network approach analysis of PCL and PCL + PHQ9 networks. Cohort of VA/DoD administrative data set. 
 
-# Version 0.5 17.12.2019 - OAD
+# Version 0.6 18.12.2019 - OAD
   
 ## Table of Contents
 1.  Load libraries 
@@ -52,6 +52,7 @@ require("tidyverse")
 require("corrplot")
 library(OpenMx)
 library(devtools)
+require(lavaan)
 
 ```
  
@@ -321,7 +322,7 @@ g2 <- plot(n2, pie=R2_1, legend.cex=.5, vsize=7, theme = "colorblind", groups = 
 #### Centrality graph of PCL network:
 ```{r}
 # sort by level of centrality (strength)
-sort(centrality(n2)$OutDegree, decreasing = T)
+sort(centrality(n2)$OutDegree  , decreasing = T)
 # plot centrality
 centralityPlot(n2, include = "all")
 ```
@@ -329,21 +330,21 @@ centralityPlot(n2, include = "all")
 #### Stability of PCL network
 ```{r}
 # Bootstrap 1:
-boot1 <- bootnet(n2, nCores = 6, nBoots = 1000, type = "nonparametric") 
-plot(boot1, labels = F, order = "sample")  + theme_minimal()
+#boot1 <- bootnet(n2, nCores = 6, nBoots = 1000, type = "nonparametric") 
+#plot(boot1, labels = F, order = "sample")  + theme_minimal()
 # now lets look at subjects
-boot2 <- bootnet(n2, nCores = 6, nBoots = 1000, type = "case")
-plot(boot2, labels = F, order = "sample") + theme_minimal()
+#boot2 <- bootnet(n2, nCores = 6, nBoots = 1000, type = "case")
+#plot(boot2, labels = F, order = "sample") + theme_minimal()
 
 # Measure Centrality stability
 #boot3 <- bootnet(n2, nCores = 6, nBoots = 1000, statistics = "strength", type = "case")
 #plot(boot3, labels = F, order = "sample") + theme_minimal()
 
 #plot sig diff edges
-plot(boot1, "edge", plot = "difference", onlyNonZero = TRUE, order = "sample")
+#plot(boot1, "edge", plot = "difference", onlyNonZero = TRUE, order = "sample")
 
 #plot sig diff nodes
-plot(boot1, "Strength") 
+#plot(boot1, "Strength") 
 ```
 
 ### 4.1 PCL & PHQ9 Network
@@ -364,17 +365,17 @@ centralityPlot(n2_phq, include = "all")
 #### Stability of PCL & PHQ9 network
 ```{r}
 # Bootstrap 1:
-boot1_phq <- bootnet(n2_phq, nCores = 6, nBoots = 1000, type = "nonparametric") 
-plot(boot1_phq, labels = F, order = "sample")  + theme_minimal()
+#boot1_phq <- bootnet(n2_phq, nCores = 6, nBoots = 1000, type = "nonparametric") 
+#plot(boot1_phq, labels = F, order = "sample")  + theme_minimal()
 # now lets look at subjects
-boot2_phq <- bootnet(n2_phq, nCores = 6, nBoots = 1000, type = "case")
-plot(boot2_phq, labels = F, order = "sample") + theme_minimal()
+#boot2_phq <- bootnet(n2_phq, nCores = 6, nBoots = 1000, type = "case")
+#plot(boot2_phq, labels = F, order = "sample") + theme_minimal()
 
 #plot sig diff edges
-plot(boot1_phq, "edge", plot = "difference", onlyNonZero = TRUE, order = "sample")
+#plot(boot1_phq, "edge", plot = "difference", onlyNonZero = TRUE, order = "sample")
 
 #plot sig diff nodes
-plot(boot1_phq, "Strength") 
+#plot(boot1_phq, "Strength") 
 ```
 
 #### Centrality of both networks in a single graph
@@ -417,6 +418,14 @@ confirmatory <- confirmatory %>% runmodel
 
 confirmatory %>% fit
 ```
+```{r}
+# saving to word table
+library(rtf)
+rtffile <- RTF("fitResults.doc")  # this can be an .rtf or a .doc
+addParagraph(rtffile, "This is the output of fit results:\n")
+addTable(rtffile, as.data.frame((confirmatory %>% fit)))
+done(rtffile)
+```
 
 #### Compare fit indices
 ```{r}
@@ -456,6 +465,13 @@ confirmatoryPHQ <- confirmatoryPHQ %>% runmodel
 confirmatoryPHQ %>% fit
 ```
 
+```{r}
+rtffile_phq <- RTF("fitResults_phq.doc")  # this can be an .rtf or a .doc
+addParagraph(rtffile_phq, "This is the output of fit results for PHQ and PCL:\n")
+addTable(rtffile_phq, as.data.frame((confirmatoryPHQ %>% fit)))
+done(rtffile_phq)
+```
+
 #### Compare fit indices
 ```{r}
 compare(train = model_frombootnetPHQ , test = confirmatoryPHQ)
@@ -465,14 +481,76 @@ compare(train = model_frombootnetPHQ , test = confirmatoryPHQ)
 #### Data driven clustering using EGA
 ```{r}
 # Cluster of PCL and PHQ
-ega<-EGA(df3, plot.EGA = TRUE, steps = 4)
+egaLasso<-EGA(df3, plot.EGA = TRUE, steps = 4, model = "glasso")
+egaTMFG <- EGA(df3, plot.EGA = TRUE, steps = 4, model = "TMFG")
+
+
+# run CFA
+pcl_phqCFA <- CFA(ega.obj = ega,data = df3,plot.CFA = TRUE, estimator = "WLSMV")
+# bootstrap
+bootEGA_pclPHQ <- bootEGA(df3, 500, type = "resampling", ncores = 6)
 
 # Cluster only PCL
-egaPCL<-EGA(df2, plot.EGA = TRUE, steps = 4)
-# use different load
-#egaPCL_load0.5<-EGA(df2, plot.EGA = TRUE, steps = 2, model = "TMFG")
+egaPCL_glasso<-EGA(df2, plot.EGA = TRUE, steps = 4,  model = "glasso")
+egaPCL_TMFG<-EGA(df2, plot.EGA = TRUE, steps = 4,  model = "TMFG")
+# plot ega gLASSO
+plot(egaPCL_glasso, theme = "colorblind", layout =g2$layout)
+
+pclCFA_glasso <- CFA(ega.obj = egaPCL_glasso,data = df2,plot.CFA = TRUE, estimator = "WLSMV")
+# plot CFA gLASSO
+plot(pclCFA, theme="colorblind")
+
+pclCFA_TMFG <- CFA(ega.obj = egaPCL_TMFG,data = df2,plot.CFA = TRUE, estimator = "WLSMV")
+
+bootEGA_pcl <- bootEGA(df2, 1000, type = "resampling", ncores = 5)
+plot(bootEGA_pcl)
+# bootstrap results in the same structure
+# run cfa on 5 factor model
 ```
 ### Only PCL has three clusters (when EGA load is set to 0.7 )
+## We should compare the confirmatory analysis of PTSD (PCL) based on the EGA with one based on the 5-factor model
+
+```{r}
+# gr1 <- list("Re-experiencing"=c(1:5), "Avoidance"=c(6:7), "Emotional numbing"=c(8:12),"Dysphoric arousal"=c(13:15), "Anxious arousal"=c(16:17))
+model_5Factor <- ' ReExperiencing =~ PCL1 + PCL2 + PCL3 + PCL4 + PCL5
+Avoidance =~ PCL6 + PCL7
+Numbing =~ PCL8 + PCL9 + PCL10 + PCL11 + PCL12
+DysphoricArousal =~ PCL13 + PCL14 + PCL15
+AnxiousArousal =~ PCL16 + PCL17 '
+theoModel <- cfa(model_5Factor, data = df2, estimator = "WLSMV")
+
+# fit measures of 5 factor model
+fitMeasures(theoModel, c("chisq","df","pvalue","srmr","cfi","rmsea"))
+# fit measures of EGA
+fitMeasures(pclCFA_glasso$fit, c("chisq","df","pvalue","srmr","cfi","rmsea"))
+# seems like 5 models has a bit better fit
+fitMeasures(pclCFA_TMFG$fit, c("chisq","df","pvalue","srmr","cfi","rmsea"))
+
+# seems like TMGF is the worst option
+
+# Lets run Chisq to compare each model
+
+lavTestLRT(theoModel,pclCFA_TMFG$fit)
+lavTestLRT(theoModel,pclCFA_glasso$fit)
+```
+## Lets plot the theoretical modeling, just for the sake of plotting
+```{r}
+semPlot::semPaths(theoModel, what = "est", layout = "spring", theme = "colorblind")#, title = FALSE, curvePivot = TRUE)
+```
+## We can next compare it with the DSM-IV model (3 factors)
+```{r}
+#gr_likeDSM <- list("Intrusion"=c(1:5), "Avoidance"=c(6:12), "Arousal"=c(13:17)) #PTSD symptoms categories B C D
+dsm_Model <- 'Intrusion =~ PCL1 + PCL2 + PCL3 + PCL4 + PCL5 
+Avoidance =~ PCL6 + PCL7 + PCL8 + PCL9 + PCL10 + PCL11 + PCL12
+Arousal =~ PCL13 + PCL14 + PCL15 + PCL16 + PCL17'
+
+DSMModel <- cfa(dsm_Model, data = df2, estimator = "WLSMV")
+fitMeasures(DSMModel, c("chisq","df","pvalue","srmr","cfi","rmsea"))
+lavTestLRT(theoModel,DSMModel)
+lavTestLRT(DSMModel,pclCFA_glasso$fit, method ="satorra.2000")
+```
+5-factor model outperform theoretical model. 
+
 
 ## 7. Session info
 ```{r}
