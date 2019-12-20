@@ -330,21 +330,21 @@ centralityPlot(n2, include = "all")
 #### Stability of PCL network
 ```{r}
 # Bootstrap 1:
-#boot1 <- bootnet(n2, nCores = 6, nBoots = 1000, type = "nonparametric") 
-#plot(boot1, labels = F, order = "sample")  + theme_minimal()
+boot1 <- bootnet(n2, nCores = 6, nBoots = 1000, type = "nonparametric") 
+plot(boot1, labels = F, order = "sample")  + theme_minimal()
 # now lets look at subjects
-#boot2 <- bootnet(n2, nCores = 6, nBoots = 1000, type = "case")
-#plot(boot2, labels = F, order = "sample") + theme_minimal()
+boot2 <- bootnet(n2, nCores = 6, nBoots = 1000, type = "case")
+plot(boot2, labels = F, order = "sample") + theme_minimal()
 
 # Measure Centrality stability
 #boot3 <- bootnet(n2, nCores = 6, nBoots = 1000, statistics = "strength", type = "case")
 #plot(boot3, labels = F, order = "sample") + theme_minimal()
 
 #plot sig diff edges
-#plot(boot1, "edge", plot = "difference", onlyNonZero = TRUE, order = "sample")
+plot(boot1, "edge", plot = "difference", onlyNonZero = TRUE, order = "sample")
 
 #plot sig diff nodes
-#plot(boot1, "Strength") 
+plot(boot1, "Strength") 
 ```
 
 ### 4.1 PCL & PHQ9 Network
@@ -365,25 +365,23 @@ centralityPlot(n2_phq, include = "all")
 #### Stability of PCL & PHQ9 network
 ```{r}
 # Bootstrap 1:
-#boot1_phq <- bootnet(n2_phq, nCores = 6, nBoots = 1000, type = "nonparametric") 
-#plot(boot1_phq, labels = F, order = "sample")  + theme_minimal()
+boot1_phq <- bootnet(n2_phq, nCores = 6, nBoots = 1000, type = "nonparametric") 
+plot(boot1_phq, labels = F, order = "sample")  + theme_minimal()
 # now lets look at subjects
-#boot2_phq <- bootnet(n2_phq, nCores = 6, nBoots = 1000, type = "case")
-#plot(boot2_phq, labels = F, order = "sample") + theme_minimal()
+boot2_phq <- bootnet(n2_phq, nCores = 6, nBoots = 1000, type = "case")
+plot(boot2_phq, labels = F, order = "sample") + theme_minimal()
 
 #plot sig diff edges
-#plot(boot1_phq, "edge", plot = "difference", onlyNonZero = TRUE, order = "sample")
+plot(boot1_phq, "edge", plot = "difference", onlyNonZero = TRUE, order = "sample")
 
 #plot sig diff nodes
-#plot(boot1_phq, "Strength") 
+plot(boot1_phq, "Strength") 
 ```
 
 #### Centrality of both networks in a single graph
 ```{r}
 centralityPlot(list("Only PCL" = n2, "PCL_PHQ9" = n2_phq), include = c("Betweenness", "Strength", "Closeness", "ExpectedInfluence"), decreasing = TRUE) + theme_minimal() 
 
-# if we graph only the PCL 17 
-#centralityPlot(list("Only PCL" = results_noCluster, "PCL_PHQ9" = results_PHQnoCluster$graph[1:17,1:17], "onlyPCL_PHQ_data" = results_onlyPCL), include = c("Betweenness", "Strength", "Closeness", "ExpectedInfluence"), decreasing = TRUE) + theme_minimal() 
 ```
 
 ## 5. Confirmatory network analysis
@@ -486,9 +484,9 @@ egaTMFG <- EGA(df3, plot.EGA = TRUE, steps = 4, model = "TMFG")
 
 
 # run CFA
-pcl_phqCFA <- CFA(ega.obj = ega,data = df3,plot.CFA = TRUE, estimator = "WLSMV")
+pcl_phqCFA <- CFA(ega.obj = egaLasso,data = df3,plot.CFA = TRUE, estimator = "WLSMV")
 # bootstrap
-bootEGA_pclPHQ <- bootEGA(df3, 500, type = "resampling", ncores = 6)
+bootEGA_pclPHQ <- bootEGA(df3, 500, type = "resampling", ncores = 5)
 
 # Cluster only PCL
 egaPCL_glasso<-EGA(df2, plot.EGA = TRUE, steps = 4,  model = "glasso")
@@ -498,11 +496,11 @@ plot(egaPCL_glasso, theme = "colorblind", layout =g2$layout)
 
 pclCFA_glasso <- CFA(ega.obj = egaPCL_glasso,data = df2,plot.CFA = TRUE, estimator = "WLSMV")
 # plot CFA gLASSO
-plot(pclCFA, theme="colorblind")
+plot(pclCFA_glasso, theme="colorblind")
 
 pclCFA_TMFG <- CFA(ega.obj = egaPCL_TMFG,data = df2,plot.CFA = TRUE, estimator = "WLSMV")
 
-bootEGA_pcl <- bootEGA(df2, 1000, type = "resampling", ncores = 5)
+bootEGA_pcl <- bootEGA(df2, 500, type = "resampling", ncores = 5)
 plot(bootEGA_pcl)
 # bootstrap results in the same structure
 # run cfa on 5 factor model
