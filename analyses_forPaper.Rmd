@@ -25,6 +25,7 @@ vaDatclean$MHTOTALLc <- ifelse((vaDatclean$MHTOTALL > 365), (vaDatclean$MHTOTALL
 # set index date
 a = '01/01/1960'
 vaDatclean$PTSDINDr = as.Date(as.character(a), format = '%d/%m/%Y') + vaDatclean$PTSDIND
+vaDatclean$PCL_date <- as.Date(as.character(a), format = '%d/%m/%Y') + vaDatclean$PCLSURVEYDATE
 # Now take only patients who recieved medications. 
 onlyMed_dat <- subset(vaDatclean, vaDatclean$PMEDRX==1)
 # set number of days from index day to drop out
@@ -338,4 +339,53 @@ plot_summs(model2, model3, scale = TRUE, exp = TRUE, model.names = c("All year",
            # coefs = c("Age" = "AGE_OCT01", "# Psych Sessions" = "PSYCTHR","Not Married" = "MARRIED", "Comorbidity Index" = "sumComorbid", "# of Medications" = "sumMed", "PCL-R" = '"scale(pclR)"', "PCL-A" = "scale(pclA)", "PCL-N" = "scale(pclN)", "PCL-DA" = "scale(pclDA)", "PCL-AA" = "scale(pclAA)"))
 ```
 
+
+## Comments from reviewers
+
+```{r comments_reviewers}
+# first - check the difference between indexday and pcl day
+# first lets remove NAs 
+sum(is.na(pclNoNa$PCLSURVEYDATE)) # none
+sum(is.na(pclNoNa$PTSDIND)) # none
+pclNoNa$pcl_ptsdIndex <- pclNoNa$PCLSURVEYDATE - pclNoNa$PTSDIND  # how many days since PTSD index day to actual PCL
+MASS::truehist(pclNoNa$pcl_ptsdIndex)
+# as you can see, majority are aroung the same day. Lets look in more details at the numbers around zero
+MASS::truehist(pclNoNa$pcl_ptsdIndex)
+# compare to medications
+# first Antidepressants
+# threeMeds_dat$ADFSTRX,format = '%m/%d/%Y' ), as.Date(threeMeds_dat$APSFSTRX, format = '%m/%d/%Y'), as.Date(threeMeds_dat$AXFSTRX, format = '%m/%d/%Y')
+pclNoNa$diff_ad_pcl <- as.Date(pclNoNa$PCL_date, format = '%Y - %m - %D') - as.Date(pclNoNa$ADFSTRX, format = '%m/%d/%Y')
+diffAD <- subset(pclNoNa, !is.na(diff_ad_pcl))$diff_ad_pcl
+summary(diffAD)
+MASS::truehist(as.numeric(diffAD), xlim = c(-200,200))
+summary(as.numeric(diffAD))
+
+# three meds
+pclNoNa$diff_meds_pcl <- as.Date(pclNoNa$PCL_date, format = '%Y - %m - %D') - as.Date(pclNoNa$firstDateMed, format = '%m/%d/%Y')
+MASS::truehist(as.numeric(pclNoNa$diff_meds_pcl))
+summary(as.numeric(pclNoNa$diff_meds_pcl))
+
+## all medication and date of index
+## Show the time past from PTSD diagnosis day to first prescribed medication
+threeMeds_dat$meds_indexDiff <- as.Date(threeMeds_dat$firstDateMed, format = '%m/%d/%Y') -  as.Date(threeMeds_dat$PTSDINDr, format = '%Y/%m/%d')
+MASS::truehist(as.numeric(threeMeds_dat$meds_indexDiff))
+summary(as.numeric(threeMeds_dat$meds_indexDiff))
+
+#
+```
+
+## Lets analyze the PCl related results using only patients who filled in the PCL **before** medications
+
+```{r}
+pclNoNa$firstDateMed
+
+pclBefore <- subset(pclNoNa, diff_meds_pcl<)
+# total of 26440
+29818 / 63889
+
+# 
+model4 <- glm(threeMedsCensore ~ scale(pclR) + scale(pclA) + scale(pclN) + scale(pclDA) + scale(pclAA) + AGE_OCT01 + PSYCTR + MARRIED+ sumComorbid + sumMed, data=pclBefore, family = binomial)
+summary(model4)
+summ(model4, exp = TRUE, scale =TRUE, digits = 5)
+```
 
