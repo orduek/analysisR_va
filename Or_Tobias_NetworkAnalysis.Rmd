@@ -380,7 +380,7 @@ plot(boot1_phq, "Strength")
 
 #### Centrality of both networks in a single graph
 ```{r}
-centralityPlot(list("Only PCL" = n2, "PCL_PHQ9" = n2_phq), include = c("Betweenness", "Strength", "Closeness", "ExpectedInfluence"), decreasing = TRUE) + theme_minimal() 
+centralityPlot(list("Only PCL" = n2, "PCL_PHQ9" = n2_phq), include = c("Strength", "ExpectedInfluence"), decreasing = TRUE) + theme_minimal() 
 
 ```
 
