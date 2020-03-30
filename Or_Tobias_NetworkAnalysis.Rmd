@@ -7,7 +7,7 @@ df_print: paged
 ---
 ### This is an *Analysis* script for network approach analysis of PCL and PCL + PHQ9 networks. Cohort of VA/DoD administrative data set. 
 
-# Version 0.6 18.12.2019 - OAD
+# Version 0.8 30.03.2020 - OAD
   
 ## Table of Contents
 1.  Load libraries 
@@ -405,17 +405,38 @@ pclOnly_EI <- centrality(n2)$InExpectedInfluence
 pclOnly_R2_1 <- R2_1
 labels
 pcl_only <- data_frame(labels, pclOnly_EI, pclOnly_R2_1) 
-pcl_only_long <- pivot_longer(pcl_only, cols = c(pclOnly_EI, pclOnly_R2_1))
-ggplot(pcl_only_long, aes(x=labels, y=value, color = name, group = name)) + geom_point() + geom_line() + theme_minimal() + ylab("EI/R^2") + xlab("node") + coord_flip()
+pcl_only <- rename(pcl_only, ExpectedInfluence = pclOnly_EI, Predictability = pclOnly_R2_1)
+# make labels an ordered factor
+pcl_only$labels <- factor(pcl_only$labels, ordered = TRUE, levels = labels)
+pcl_only_long <- pivot_longer(pcl_only, cols = c(ExpectedInfluence, Predictability))
+ggplot(pcl_only_long, aes(x=labels, y=value, group=name)) + geom_point() + geom_line() + facet_grid(.~name) + theme_minimal() + ylab("EI/R^2") + xlab("node") + coord_flip()
 
 
 ## do the same for pcl+phq9
 pclPhq_EI <- centrality(n2_phq)$InExpectedInfluence
-pclPhq_R2_2 <- R2_2
+pclPhq_R2 <- R2_2
 labels_2
 pclPhq <- data_frame(labels_2, pclPhq_EI, pclPhq_R2_2)
-pclPhq_long <- pivot_longer(pclPhq, cols = c(pclPhq_EI, pclPhq_R2_2))
-ggplot(pclPhq_long, aes(x=labels_2, y=value, color = name, group = name)) + geom_point() + geom_line() + theme_minimal() + ylab("EI/R^2") + xlab("node") + coord_flip()
+pclPhq <- rename(pclPhq,ExpectedInfluence = pclPhq_EI, Predictability = pclPhq_R2_2)
+pclPhq$labels_2 <- factor(pclPhq$labels_2, ordered = TRUE, levels = labels_2)
+pclPhq_long <- pivot_longer(pclPhq, cols = c(ExpectedInfluence, Predictability))
+ggplot(pclPhq_long, aes(x=labels_2, y=value, group = name)) + geom_point() + geom_line() + facet_grid(.~name)+ theme_minimal() + ylab("EI/R^2") + xlab("Node") + coord_flip()
+
+
+order(pcl_only$labels)
+
+```
+### Correlation between EI and predictability of those two
+
+```{r}
+cor.test(R2_1, R2_2[1:17]) # 0.85
+cor.test(pclOnly_EI, pclPhq_EI[1:17]) # 0.9
+
+pcl_only_long$group = 'PTSD Only'
+pclPhq_long$group = 'PTSD & Depressive Symptoms'
+# plot the two toghether. 
+ggplot(pcl_only_long, aes(x=labels, y=value, color=group, group=group))  +geom_point()+ geom_line() + geom_point(data=pclPhq_long, aes(x=labels_2, y=value, color=group, group=group))+ geom_line(data=pclPhq_long, aes(x=labels_2, y=value, color=group, group=group)) +facet_grid(.~name) + theme_minimal() + ylab("EI/R^2") + xlab("Node") + coord_flip()
+
 
 ```
 
