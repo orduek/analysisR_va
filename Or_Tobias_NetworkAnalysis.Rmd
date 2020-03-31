@@ -417,13 +417,10 @@ pclPhq_EI <- centrality(n2_phq)$InExpectedInfluence
 pclPhq_R2 <- R2_2
 labels_2
 pclPhq <- data_frame(labels_2, pclPhq_EI, pclPhq_R2_2)
-pclPhq <- rename(pclPhq,ExpectedInfluence = pclPhq_EI, Predictability = pclPhq_R2_2)
-pclPhq$labels_2 <- factor(pclPhq$labels_2, ordered = TRUE, levels = labels_2)
+pclPhq <- rename(pclPhq,ExpectedInfluence = pclPhq_EI, Predictability = pclPhq_R2_2, labels = labels_2)
+pclPhq$labels <- factor(pclPhq$labels, ordered = TRUE, levels = labels_2)
 pclPhq_long <- pivot_longer(pclPhq, cols = c(ExpectedInfluence, Predictability))
-ggplot(pclPhq_long, aes(x=labels_2, y=value, group = name)) + geom_point() + geom_line() + facet_grid(.~name)+ theme_minimal() + ylab("EI/R^2") + xlab("Node") + coord_flip()
-
-
-order(pcl_only$labels)
+ggplot(pclPhq_long, aes(x=labels, y=value, group = name)) + geom_point() + geom_line() + facet_grid(.~name)+ theme_minimal() + ylab("EI/R^2") + xlab("Node") + coord_flip()
 
 ```
 ### Correlation between EI and predictability of those two
@@ -434,9 +431,10 @@ cor.test(pclOnly_EI, pclPhq_EI[1:17]) # 0.9
 
 pcl_only_long$group = 'PTSD Only'
 pclPhq_long$group = 'PTSD & Depressive Symptoms'
+pcl_both <- rbind(pcl_only_long, pclPhq_long)
 # plot the two toghether. 
-ggplot(pcl_only_long, aes(x=labels, y=value, color=group, group=group))  +geom_point()+ geom_line() + geom_point(data=pclPhq_long, aes(x=labels_2, y=value, color=group, group=group))+ geom_line(data=pclPhq_long, aes(x=labels_2, y=value, color=group, group=group)) +facet_grid(.~name) + theme_minimal() + ylab("EI/R^2") + xlab("Node") + coord_flip()
 
+ggplot(pcl_both, aes(x=labels, y=value, color=group, group=group)) + geom_point() + geom_line() + facet_grid(.~name) + theme_minimal() + ylab("EI/R^2") + xlab("Node") + coord_flip()
 
 ```
 
