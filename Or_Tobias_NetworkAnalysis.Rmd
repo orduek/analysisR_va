@@ -7,7 +7,7 @@ df_print: paged
 ---
 ### This is an *Analysis* script for network approach analysis of PCL and PCL + PHQ9 networks. Cohort of VA/DoD administrative data set. 
 
-# Version 0.8 30.03.2020 - OAD
+# Version 0.9 09.04.2020 - OAD
   
 ## Table of Contents
 1.  Load libraries 
@@ -53,7 +53,7 @@ require("corrplot")
 library(OpenMx)
 library(devtools)
 require(lavaan)
-
+require(ltm)
 ```
  
 ## 2. Import and prepare data  & descriptives
@@ -106,6 +106,20 @@ table(pclPHQNetwork$FEMALE)
 
 ```
 
+## Compare these demorgraphics with the rest of the sample
+
+```{r}
+noPCL <- dplyr::filter(vaDatclean, is.na(BPCLTOT))
+summary(noPCL$AGE_OCT01)
+noPCL <- filter(noPCL, AGE_OCT01<120)
+hist(noPCL$AGE_OCT01)
+mean(noPCL$AGE_OCT01, na.rm=TRUE)
+sd(noPCL$AGE_OCT01, na.rm=TRUE)
+t.test(noPCL$AGE_OCT01, pclAll$AGE_OCT01)
+table(noPCL$FEMALE)
+```
+
+
 ```{r}
 # build data set only with PCL items
 pclItems <- dplyr::select(pclAll, starts_with("PCL"))
@@ -115,11 +129,14 @@ pclItems_noCluster <- dplyr::select(pclItems, -PCLFY, -PCLSURVEYDATE, -PCLRAWSCO
 nrow(pclItems_noCluster)
 pclItems_noCluster <- na.omit(pclItems_noCluster)
 nrow(pclItems_noCluster)
-
+## alpha cronbach
+cronbach.alpha(pclItems_noCluster)
 
 pclPHQNetwork_noCluster <- dplyr::select(pclPHQNetwork, starts_with("PCL"), -PCLFY, -PCLSURVEYDATE, -PCLRAWSCORE, -PCL_PHQdiff, PHQ1,PHQ2,PHQ3, PHQ4,PHQ5,PHQ6,PHQ7,PHQ8,PHQ9)
 pclPHQNetwork_noCluster <- na.omit(pclPHQNetwork_noCluster)
 
+## Alpha cronbach
+cronbach.alpha(pclPHQNetwork_noCluster)
 ```
 
 ## 3.  Compare different estimation techniques 
