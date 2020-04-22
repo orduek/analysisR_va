@@ -7,7 +7,7 @@ df_print: paged
 ---
 ### This is an *Analysis* script for network approach analysis of PCL and PCL + PHQ9 networks. Cohort of VA/DoD administrative data set. 
 
-# Version 0.9 09.04.2020 - OAD
+# Version 0.9.1 21.04.2020 - OAD
   
 ## Table of Contents
 1.  Load libraries 
@@ -92,6 +92,7 @@ hist(pclPHQNetwork$PCL_PHQdiff)
 ```{r sample descriptives}
 # gather info on both meds and no meda
 # remove patients with more than 14 days apart PHQ and PCL
+pclAll <- filter(pclAll, AGE_OCT01<110)
 summary(pclAll$AGE_OCT01)
 mean(pclAll$AGE_OCT01, na.rm=TRUE)
 sd(pclAll$AGE_OCT01, na.rm=TRUE)
@@ -111,12 +112,14 @@ table(pclPHQNetwork$FEMALE)
 ```{r}
 noPCL <- dplyr::filter(vaDatclean, is.na(BPCLTOT))
 summary(noPCL$AGE_OCT01)
-noPCL <- filter(noPCL, AGE_OCT01<120)
+noPCL <- filter(noPCL, AGE_OCT01<110)
 hist(noPCL$AGE_OCT01)
 mean(noPCL$AGE_OCT01, na.rm=TRUE)
 sd(noPCL$AGE_OCT01, na.rm=TRUE)
 t.test(noPCL$AGE_OCT01, pclAll$AGE_OCT01)
 table(noPCL$FEMALE)
+
+chisq.test(rbind(table(noPCL$FEMALE), table(pclAll$FEMALE)))
 ```
 
 
@@ -130,13 +133,23 @@ nrow(pclItems_noCluster)
 pclItems_noCluster <- na.omit(pclItems_noCluster)
 nrow(pclItems_noCluster)
 ## alpha cronbach
-cronbach.alpha(pclItems_noCluster)
+cronbach.alpha(pclItems_noCluster, CI = T)
 
 pclPHQNetwork_noCluster <- dplyr::select(pclPHQNetwork, starts_with("PCL"), -PCLFY, -PCLSURVEYDATE, -PCLRAWSCORE, -PCL_PHQdiff, PHQ1,PHQ2,PHQ3, PHQ4,PHQ5,PHQ6,PHQ7,PHQ8,PHQ9)
 pclPHQNetwork_noCluster <- na.omit(pclPHQNetwork_noCluster)
 
 ## Alpha cronbach
 cronbach.alpha(pclPHQNetwork_noCluster)
+```
+
+### Compare PCL distribution between the two samples:
+
+```{r}
+MASS::truehist(pclAll$BPCLTOT)
+summary(pclAll$BPCLTOT, rm.na = TRUE)
+
+summary(pclPHQNetwork$BPCLTOT, rm.na=TRUE)
+sd(pclPHQNetwork$BPCLTOT)
 ```
 
 ## 3.  Compare different estimation techniques 
@@ -358,14 +371,14 @@ centralityPlot(n2, include = "all")
 #### Stability of PCL network
 ```{r}
 # Bootstrap 1:
-boot1 <- bootnet(n2, nCores = 7, nBoots = 2000, type = "nonparametric") 
+boot1 <- bootnet(n2, nCores = 10, nBoots = 2000, type = "nonparametric") 
 plot(boot1, labels = F, order = "sample")  + theme_minimal()
 # now lets look at subjects
-boot2 <- bootnet(n2, nCores = 7, nBoots = 2000, type = "case")
+boot2 <- bootnet(n2, nCores = 10, nBoots = 2000, type = "case")
 plot(boot2, labels = F, order = "sample") + theme_minimal()
 
 # Measure Centrality stability for EI - to check later for differences
-boot3 <- bootnet(n2, nCores = 6, nBoots = 2000, statistics = "expectedInfluence", type = "nonparametric")
+boot3 <- bootnet(n2, nCores = 10, nBoots = 2000, statistics = "expectedInfluence", type = "nonparametric")
 
 # plot EI differences
 plot(boot3, statistics = "expectedInfluence", plot = "difference")#, labels = F, order = "sample") + theme_minimal()
@@ -392,10 +405,10 @@ centralityPlot(n2_phq, include = "all")
 #### Stability of PCL & PHQ9 network
 ```{r}
 # Bootstrap 1:
-boot1_phq <- bootnet(n2_phq, nCores = 7, nBoots = 2000, type = "nonparametric") 
+boot1_phq <- bootnet(n2_phq, nCores = 10, nBoots = 2000, type = "nonparametric") 
 plot(boot1_phq, labels = F, order = "sample")  + theme_minimal()
 # now lets look at subjects
-boot2_phq <- bootnet(n2_phq, nCores = 7, nBoots = 2000, type = "case")
+boot2_phq <- bootnet(n2_phq, nCores = 10, nBoots = 2000, type = "case")
 plot(boot2_phq, labels = F, order = "sample") + theme_minimal()
 
 
@@ -431,7 +444,7 @@ ggplot(pcl_only_long, aes(x=labels, y=value, group=name)) + geom_point() + geom_
 
 ## do the same for pcl+phq9
 pclPhq_EI <- centrality(n2_phq)$InExpectedInfluence
-pclPhq_R2 <- R2_2
+pclPhq_R2_2 <- R2_2
 labels_2
 pclPhq <- data_frame(labels_2, pclPhq_EI, pclPhq_R2_2)
 pclPhq <- rename(pclPhq,ExpectedInfluence = pclPhq_EI, Predictability = pclPhq_R2_2, labels = labels_2)
