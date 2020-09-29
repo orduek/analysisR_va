@@ -31,8 +31,8 @@ df_print: paged
 ## 1. Load libraries
 ```{r}
 # Data handeling
-# if(!require("tidyverse")) install.packages("tidyverse")
-# if(!require("corrplot")) install.packages("corrplot")  ## correlation matrix plots
+if(!require("tidyverse")) install.packages("tidyverse")
+if(!require("corrplot")) install.packages("corrplot")  ## correlation matrix plots
 # if(!require("OpenMX")) install.packages("OpenMx") 
 # 
 # # Network packages
@@ -176,36 +176,27 @@ g2 <- plot(n2, legend.cex=.5, vsize=7)
 n3 <- estimateNetwork(df2, default="EBICglasso", corMethod = "cor", corArgs = list(method="spearman"), threshold=TRUE)
 g3 <- plot(n3, layout=g2$layout, legend.cex=.5, vsize=7)
 
-### C. Robustness: use new estimation procedure ggmModSelect (http://psychosystems.org/qgraph_1.5)
+### C. Robustness: use new estimation procedure ggmModSelect - this is a nonregularized network (http://psychosystems.org/qgraph_1.5)
 n4 <- estimateNetwork(df2, default="ggmModSelect", corMethod = "cor", corArgs = list(method="spearman"))
 g4 <- plot(n4, layout=g2$layout, legend.cex=.5, vsize=7)
 
 ### D.1 Nonregularized network - I've used this one simply enough - please comment on better methods
-n5 <- GGMregress(df2,IC = "BIC", method= "forward")
-g5 <- qgraph(n5$pcor_or, layout = g2$layout, theme = "colorblind", labels = labels)
+n5 <- GGM_regression(df2,IC = "BIC", method= "forward")
+g5 <- qgraph(n5$pcor_selected, layout = g2$layout, theme = "colorblind", labels = labels)
 
 ### D.2 - TOBIAS' SUGGESTION - Nonregularized network
-n5_2 <- GGMnonreg::GGMboot(df2, alpha = 0.05, sims = 1000)
-g5_2 <- qgraph(n5_2$mat_mean, layout = g2$layout, theme = "colorblind", labels = labels)
+n5_2 <-GGM_bootstrap(df2, alpha = 0.05, sims = 1000)
+g5_2 <- qgraph(n5_2$pcor_selected, layout = g2$layout, theme = "colorblind", labels = labels)
 
 ### E Bayesian Network
-n6 <- explore(df2, prior_sd = 0.5, iter = 5000, cores = 4)
+n6 <- explore(df2, prior_sd = 0.5, iter = 5000, cores = 6)
 # H1 for this network is, that edges are not zero (either negative or positive), H0 is that they are zero #
 E <- BGGM::select(n6, BF_cut = 10, alternative = "two.sided")
 # Summary table of the network ##
 summary(E, summarize = T, log = TRUE, digits = 2)  # log TRUE: BF= ln(BF), BF_10 = evidence for H1, BF_01 = evidence for H0
 # Plot
-g6 <- qgraph(E$partials_non_zero, legend = FALSE, layout = g2$layout, theme = "colorblind", labels = labels)
+g6 <- qgraph(E$pcor_mat, legend = FALSE, layout = g2$layout, theme = "colorblind", labels = labels)
 
-
-### Bayesian R2 ### - DOES NOT WORK AT THE MOMENT!
-# Compute Bayes R2 #
-# fit_R2 <- estimate(df2, iter = 5000)
-# The following code gives me an error: no applicable method for 'predict' applied to an object of class "estimate". Tobias, do you have any idea?
-# R2 <- predict(fit_R2,
-#               ci_width = 0.90,
-#               samples = 1000,
-#               measure = "R2")
 
 ```
 
@@ -222,9 +213,9 @@ cor(vechs(E$partials_non_zero), vechs(n2$graph), method = "spearman") #0.95
 # Looks like all networks are highly correlated with each other. 
 # We choose n2 from here on, although looks like all are very similar - do you suggest different network to go with? TOBIAS: I think it doesn't matter
 ```
-### Look at edges in n2
+### Look at edges in n4
 ```{r}
-m <- n2$graph
+m <- n4_phq$graph
 top_frac(as.data.frame(m), 5)
 # get top 5%
 m[m > quantile(m, prob=0.95)]
@@ -239,7 +230,7 @@ sort(b)
 fit1 <- mgm(data = na.omit(df2), type = rep('g', 17), lambdaSel = 'CV', level = rep(1,17), k = 3)
 pred1 <- predict(fit1, na.omit(df2), errorCon = "R2")
 
-pred1$errors #list with predcitability for each node
+pred1$errors #list with predictability for each node
 
 # Average node predictability #
 R2_1<-as.numeric(pred1$errors$R2)
@@ -248,7 +239,7 @@ mean(R2_1) # 0.464
 
 # ## Plot network and save as PDF - for now plotting here only. 
 # pdf("PCL_Network_predictab.pdf", width=10, height=10)
-g2 <- plot(n2, pie=R2_1, title="PCL-Network", legend.cex=.5, vsize=7)
+g2_mgm <- qgraph(n4$graph, pie=R2_1, title="PCL-Network", legend.cex=.5, vsize=7, layout=g2$layout, theme= "colorblind")
 #dev.off()
 ```
 
@@ -292,17 +283,10 @@ summary(E_phq, summarize = T, log = TRUE, digits = 2)  # log TRUE: BF= ln(BF), B
 # Plot
 g6 <- qgraph(E_phq$partials_non_zero, legend = FALSE, layout = g2_phq$layout, theme = "colorblind", labels = labels_2)
 
-
-### Bayesian R2 ### - DOES NOT WORK AT THE MOMENT!
-# Compute Bayes R2 #
-# fit_R2_phq <- estimate(df2_phq, iter = 5000)
-# The following code gives me an error: no applicable method for 'predict' applied to an object of class "estimate". Tobias, do you have any idea?
-# R2_phq <- predict(fit_R2_phq,
-#               ci_width = 0.90,
-#               samples = 1000,
-#               measure = "R2")
 ```
+
 #### Estiamte Predictability (using mgm) for PCL & PHQ9
+
 ```{r}
 fit2 <- mgm(data = na.omit(df3), type = rep('g', 26), lambdaSel = 'CV', level = rep(1,26), k = 3)
 pred2 <- predict(fit2, na.omit(df3), errorCon = "R2")
@@ -311,12 +295,14 @@ pred2$errors #list with predcitability for each node
 
 # Average node predictability #
 R2_2<-as.numeric(pred2$errors$R2)
-mean(R2_2) # 0.224
+mean(R2_2) # 0.467
 
+# sort predictability
+view(sort(pred2$errors))
 
 # ## Plot network and save as PDF - for now plotting here only. 
 # pdf("PCL_Network_predictab.pdf", width=10, height=10)
-g3 <- plot(n2_phq, pie=R2_2, title="PCL&PHQ9-Network", legend.cex=.5, vsize=7)
+g3 <- plot(n4_phq, pie=R2_2, title="PCL&PHQ9-Network", legend.cex=.5, vsize=7)
 #dev.off()
 ```
 #### Correlate the different networks with the first network (EBIC, spearman) to check similarity
@@ -328,7 +314,7 @@ cor(vechs(n4_phq$graph), vechs(n3_phq$graph), method="spearman") #0.94
 cor(vechs(n5_phq$pcor_or), vechs(n2_phq$graph), method = "spearman") #0.958
 cor(vechs(E_phq$partials_non_zero), vechs(n2_phq$graph), method = "spearman") #0.948
 
-# n3 stands out, too sparse; similarity n2 and n4 for robustness analyses: 
+
 # We choose n2_phq from here on - should we go with a different one?  #TOBIAS: I think it doesn't matter
 ```
 
@@ -355,7 +341,7 @@ cor.test(df3$PCL15, df3$PHQ7)
 gr1 <- list("Re-experiencing"=c(1:5), "Avoidance"=c(6:7), "Emotional numbing"=c(8:12),"Dysphoric arousal"=c(13:15), "Anxious arousal"=c(16:17)) #PTSD Clusters
 gr_likeDSM <- list("Intrusion"=c(1:5), "Avoidance"=c(6:12), "Arousal"=c(13:17)) #PTSD symptoms categories B C D
 
-g2 <- plot(n2, pie=R2_1, legend.cex=.5, vsize=7, theme = "colorblind", groups = gr1)
+g2 <- plot(n2, pie=R2_1, legend.cex=.5, vsize=7, theme = "colorblind")#, groups = gr_likeDSM)
 
 # Currently no predictability analysis. We should discuss if we want to include it
 ```
@@ -363,22 +349,22 @@ g2 <- plot(n2, pie=R2_1, legend.cex=.5, vsize=7, theme = "colorblind", groups = 
 #### Centrality graph of PCL network:
 ```{r}
 # sort by level of centrality (strength)
-sort(centrality(n2)$InExpectedInfluence  , decreasing = T)
+sort(centrality(n4)$InExpectedInfluence  , decreasing = T)
 # plot centrality
-centralityPlot(n2, include = "all")
+centralityPlot(n4, include = "all")
 ```
 
 #### Stability of PCL network
 ```{r}
 # Bootstrap 1:
-boot1 <- bootnet(n2, nCores = 10, nBoots = 2000, type = "nonparametric") 
+boot1 <- bootnet(n4, nCores = 10, nBoots = 1000, type = "nonparametric") 
 plot(boot1, labels = F, order = "sample")  + theme_minimal()
 # now lets look at subjects
-boot2 <- bootnet(n2, nCores = 10, nBoots = 2000, type = "case")
+boot2 <- bootnet(n4, nCores = 10, nBoots = 1000, type = "case")
 plot(boot2, labels = F, order = "sample") + theme_minimal()
 
 # Measure Centrality stability for EI - to check later for differences
-boot3 <- bootnet(n2, nCores = 10, nBoots = 2000, statistics = "expectedInfluence", type = "nonparametric")
+boot3 <- bootnet(n4, nCores = 10, nBoots = 1000, statistics = "expectedInfluence", type = "nonparametric")
 
 # plot EI differences
 plot(boot3, statistics = "expectedInfluence", plot = "difference")#, labels = F, order = "sample") + theme_minimal()
@@ -391,29 +377,29 @@ plot(boot1, "edge", plot = "difference", onlyNonZero = TRUE, order = "sample")
 ```{r}
 #grep("PHQ", colnames(pclPHQNetwork_noCluster)) # get location of PHQ
 gr2 <- list("Re-experiencing"=c(1:5), "Avoidance"=c(6:7), "Emotional numbing"=c(8:12),"Dysphoric arousal"=c(13:15), "Anxious arousal"=c(16:17), "PHQ9-Depression"=c(18:26)) #PTSD symptoms categories B C D E  
-plot(n2_phq, pie=R2_2, groups = gr2, theme="colorblind")
+plot(n4_phq, pie=R2_2, theme="colorblind")
 ```
 
 #### Centrality graph of PCL & PHQ9 network
 ```{r}
 # sort by level of centrality (EI)
-sort(centrality(n2_phq)$InExpectedInfluence, decreasing = T)
+sort(centrality(n4_phq)$InExpectedInfluence, decreasing = T)
 # plot centrality
-centralityPlot(n2_phq, include = "all")
+centralityPlot(n4_phq, include = "all")
 ```
 
 #### Stability of PCL & PHQ9 network
 ```{r}
 # Bootstrap 1:
-boot1_phq <- bootnet(n2_phq, nCores = 10, nBoots = 2000, type = "nonparametric") 
+boot1_phq <- bootnet(n4_phq, nCores = 11, nBoots = 500, type = "nonparametric") 
 plot(boot1_phq, labels = F, order = "sample")  + theme_minimal()
 # now lets look at subjects
-boot2_phq <- bootnet(n2_phq, nCores = 10, nBoots = 2000, type = "case")
+boot2_phq <- bootnet(n4_phq, nCores = 10, nBoots = 1000, type = "case")
 plot(boot2_phq, labels = F, order = "sample") + theme_minimal()
 
 
 # Measure Centrality stability for EI - to check later for differences
-boot3_phq <- bootnet(n2_phq, nCores = 10, nBoots = 2000, statistics = "expectedInfluence", type = "nonparametric")
+boot3_phq <- bootnet(n4_phq, nCores = 10, nBoots = 1000, statistics = "expectedInfluence", type = "nonparametric")
 
 #plot sig diff edges
 plot(boot1_phq, "edge", plot = "difference", onlyNonZero = TRUE, order = "sample")
@@ -457,7 +443,7 @@ ggplot(pclPhq_long, aes(x=labels, y=value, group = name)) + geom_point() + geom_
 
 ```{r}
 cor.test(R2_1, R2_2[1:17]) # 0.85
-cor.test(pclOnly_EI, pclPhq_EI[1:17]) # 0.9
+
 
 pcl_only_long$group = 'PTSD Only'
 pclPhq_long$group = 'PTSD & Depressive Symptoms'
@@ -634,6 +620,114 @@ lavTestLRT(DSMModel,pclCFA_glasso$fit, method ="satorra.2000")
 5-factor model outperform theoretical model. 
 
 
+## Compare the PTSD and the comorbidity network (n2 and n2_phq)
+```{r}
+deltaNet <- n2$graph - n2_phq$graph[1:17,1:17] 
+qgraph(deltaNet, layout = g2$layout, theme = "colorblind", threshold = 0.03)#, labels = labels)
+max(deltaNet)
+min(deltaNet)
+mean(abs(deltaNet[upper.tri(deltaNet,diag=FALSE)]))
+cor(as.vector(n2$graph),as.vector(n2_phq$graph[1:17,1:17]), method="spearman") #0.98 very high correlation between the networks. 
+
+###
+
+
+sum1<-sum(abs(n2$graph[upper.tri(n2$graph,diag=FALSE)])); sum1     # 7.9; sum/2 of ptsd network matrix
+mean1<-mean(abs(n2$graph[upper.tri(n2$graph,diag=FALSE)])); mean1  # 0.05; mean edge strength
+sum2<-sum(abs(n2_phq$graph[1:17,1:17][upper.tri(n2_phq$graph[1:17,1:17],diag=FALSE)])); sum2             # 7.37; sum/2 of ptsd + MDD matrix, with mdd cells deleted (ptsd network accounting for mdd symptoms but without them)
+mean2<-mean(abs(n2_phq$graph[1:17,1:17][upper.tri(n2_phq$graph[1:17,1:17],diag=FALSE)])); mean2          # 0.05; mean edge strength
+1-sum2/sum1 # change in connectivity of PTSD network once symptoms are added 7.2%%
+
+
+centralityPlot(deltaNet, include = c("ExpectedInfluence"), decreasing = F)
+# Measure Centrality stability for EI - to check later for differences
+
+
+NCT(n2$graph, n2_phq$graph[1:17,1:17] ,weighted = T, test.edges = T, test.centrality = T, it=500)
+```
+### One last thing (?)
+Lets take the PHQ group and split them using cut off (8-11) according to:
+https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3281183/
+Lets see if these network are any different
+
+```{r}
+pclPHQNetwork_noCluster
+
+summary(pclPHQNetwork$PHQSUMTOTAL)
+pclPHQNetwork$MDD <- ifelse(pclPHQNetwork$PHQSUMTOTAL >=11,  'MDD', 'noMDD')
+
+## create two datasets
+dfMDD <- filter(pclPHQNetwork, MDD=='MDD')
+## 24,239 patients crossed the MDD threshold of 11
+dfNoMDD <- filter(pclPHQNetwork, MDD=='noMDD')
+## 9035 patients with no MDD
+
+## Now lets create two distinct networks and see if they look the same or not
+dfMDD_noCluster <- dplyr::select(dfMDD, starts_with("PCL"), -PCLFY, -PCLSURVEYDATE, -PCLRAWSCORE, -PCL_PHQdiff, PHQ1,PHQ2,PHQ3, PHQ4,PHQ5,PHQ6,PHQ7,PHQ8,PHQ9, -MDD)
+dfMDD_noCluster <- na.omit(dfMDD_noCluster)
+
+dfNoMDD_noCluster <- dplyr::select(dfNoMDD, starts_with("PCL"), -PCLFY, -PCLSURVEYDATE, -PCLRAWSCORE, -PCL_PHQdiff, PHQ1,PHQ2,PHQ3, PHQ4,PHQ5,PHQ6,PHQ7,PHQ8,PHQ9, -MDD)
+dfNoMDD_noCluster <- na.omit(dfNoMDD_noCluster)
+
+# now we can estimate a netowork for each
+mddNet <- estimateNetwork(dfMDD_noCluster, default="EBICglasso", corMethod = "cor", corArgs = list(method="spearman"), threshold=FALSE)
+mddGraph <- plot(mddNet, legend.cex=.5, vsize=7)
+
+## No mdd
+nomddNet <- estimateNetwork(dfNoMDD_noCluster, default="EBICglasso", corMethod = "cor", corArgs = list(method="spearman"), threshold=FALSE)
+nomddGraph <- plot(nomddNet, legend.cex=.5, vsize=7)
+
+
+centralityPlot(list("MDD Network" = mddNet, "No MDD" = nomddNet), include = c("ExpectedInfluence"), decreasing = TRUE) + theme_minimal() 
+
+##
+# sort by level of centrality (EI)
+sort(centrality(mddNet)$InExpectedInfluence, decreasing = T)
+
+sort(centrality(nomddNet)$InExpectedInfluence, decreasing = T)
+# compare networks
+compare <- NCT(mddNet, nomddNet ,weighted = T, test.edges = T, test.centrality = T, it=500)
+compare$glstrinv.pval # no difference in global strength
+compare$nwinv.pval # sig. difference in maximum difference in edge weight
+sum(compare$einv.pvals$`p-value` < 0.05) # 61 edges significantly different from each other. 
+compare$diffcen.pval # PCL15, PCL14, PCL13, PCL12, PCL8, PCL6, PCL5, PCL3, PCL1 are all significantly different in their centrlity between these two networks. 
+compare$diffcen.real
+```
+## Run same analysis with same two groups, but only on PCL
+
+```{r}
+## Now lets create two distinct networks and see if they look the same or not
+dfMDD_noClusterPCL <- dplyr::select(dfMDD, starts_with("PCL"), -PCLFY, -PCLSURVEYDATE, -PCLRAWSCORE, -PCL_PHQdiff, -MDD)
+dfMDD_noClusterPCL <- na.omit(dfMDD_noClusterPCL)
+
+dfNoMDD_noClusterPCL <- dplyr::select(dfNoMDD, starts_with("PCL"), -PCLFY, -PCLSURVEYDATE, -PCLRAWSCORE, -PCL_PHQdiff, -MDD)
+dfNoMDD_noClusterPCL <- na.omit(dfNoMDD_noClusterPCL)
+
+# now we can estimate a netowork for each
+mddNet_pcl <- estimateNetwork(dfMDD_noClusterPCL, default="EBICglasso", corMethod = "cor", corArgs = list(method="spearman"), threshold=FALSE)
+mddGraph_pcl <- plot(mddNet_pcl, legend.cex=.5, vsize=7)
+
+## No mdd
+nomddNet_pcl <- estimateNetwork(dfNoMDD_noClusterPCL, default="EBICglasso", corMethod = "cor", corArgs = list(method="spearman"), threshold=FALSE)
+nomddGraph_pcl <- plot(nomddNet_pcl, legend.cex=.5, vsize=7)
+
+
+centralityPlot(list("MDD Network" = mddNet_pcl, "No MDD" = nomddNet_pcl), include = c("ExpectedInfluence"), decreasing = TRUE) + theme_minimal() 
+
+##
+# sort by level of centrality (EI)
+sort(centrality(mddNet_pcl)$InExpectedInfluence, decreasing = T)
+
+sort(centrality(nomddNet_pcl)$InExpectedInfluence, decreasing = T)
+# compare networks
+compare_pcl <- NCT(mddNet_pcl, nomddNet_pcl ,weighted = T, test.edges = T, test.centrality = T, it=500)
+compare_pcl$glstrinv.pval # no difference in global strength
+compare_pcl$nwinv.pval # sig. difference in maximum difference in edge weight
+sum(compare_pcl$einv.pvals$`p-value` < 0.05) # 30 edges significantly different from each other. 
+compare_pcl$diffcen.pval # PCL1, PCL4, PCL5, PCL6, PCL8, PCL13, PCL14, PCL16 are all significantly different in their centrlity between these two networks. 
+compare_pcl$diffcen.real
+
+```
 
 
 ## 7. Session info
